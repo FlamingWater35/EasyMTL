@@ -1,0 +1,5 @@
+ebooklib
+google-generativeai
+beautifulsoup4
+dearpygui
+black
