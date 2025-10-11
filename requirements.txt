@@ -2,4 +2,6 @@ ebooklib
 google-generativeai
 beautifulsoup4
 dearpygui
+pywin32
+pywinstyles
 black

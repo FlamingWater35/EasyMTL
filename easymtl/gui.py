@@ -1,9 +1,46 @@
 import os
 import dearpygui.dearpygui as dpg
+import pywinstyles
+from win32 import win32gui
 from ebooklib import epub, ITEM_DOCUMENT
 
 from .utils import resource_path, log_message
 from .core import start_translation_thread
+
+
+def setup_window():
+    hwnd = win32gui.FindWindow(None, "EasyMTL")
+    if hwnd == 0:
+        print("Window not found for pywinstyles")
+    else:
+        pywinstyles.apply_style(hwnd, "mica")
+
+
+def setup_themes():
+    with dpg.theme() as window_theme:
+        with dpg.theme_component(dpg.mvChildWindow):
+            dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 15, 10)
+            dpg.add_theme_style(dpg.mvStyleVar_ChildRounding, 3, 3)
+            dpg.add_theme_style(dpg.mvStyleVar_ChildBorderSize, 4, 4)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (93, 64, 55))
+        with dpg.theme_component(dpg.mvButton):
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 8, 5)
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 2, 2)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (81, 71, 164))
+        with dpg.theme_component(dpg.mvButton, enabled_state=False):
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 8, 5)
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 2, 2)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (148, 147, 150))
+        with dpg.theme_component(dpg.mvInputInt):
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 2.5)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (191, 54, 12))
+        with dpg.theme_component(dpg.mvCollapsingHeader):
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 5)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (0, 96, 100))
+        with dpg.theme_component(dpg.mvAll):
+            dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 4)
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 2, 2)
+    dpg.bind_item_theme("main_window", window_theme)
 
 
 def select_file_callback(sender, app_data):
@@ -37,37 +74,37 @@ def build_gui():
     ):
         dpg.add_file_extension(".epub", color=(0, 255, 0, 255))
 
-    with dpg.window(tag="Primary Window", label="EasyMTL Translator"):
-        dpg.add_text("", tag="app_state_filepath", show=False)
-        dpg.add_input_int(tag="app_state_total_chapters", show=False, default_value=0)
-        dpg.add_text("1. Select EPUB File")
-        with dpg.group(horizontal=True):
-            dpg.add_button(
-                label="Browse...", callback=lambda: dpg.show_item("file_dialog_id")
+    with dpg.window(tag="primary_window", label="EasyMTL Translator"):
+        with dpg.child_window(tag="main_window"):
+            dpg.add_text("", tag="app_state_filepath", show=False)
+            dpg.add_input_int(tag="app_state_total_chapters", show=False, default_value=0)
+            dpg.add_text("1. Select EPUB File")
+            with dpg.group(horizontal=True):
+                dpg.add_button(
+                    label="Browse...", callback=lambda: dpg.show_item("file_dialog_id")
+                )
+                dpg.add_text("No file selected.", tag="epub_path_text")
+            dpg.add_text("", tag="chapter_info_text")
+            dpg.add_spacer(height=10)
+            dpg.add_text("2. Enter Number of Chapters to Translate")
+            dpg.add_input_int(
+                label="Chapters",
+                tag="chapter_count_input",
+                default_value=1,
+                min_value=1,
+                width=120,
             )
-            dpg.add_text("No file selected.", tag="epub_path_text")
-        dpg.add_text("", tag="chapter_info_text")
-        dpg.add_spacer(height=10)
-        dpg.add_text("2. Enter Number of Chapters to Translate")
-        dpg.add_input_int(
-            label="Chapters",
-            tag="chapter_count_input",
-            default_value=1,
-            min_value=1,
-            width=120,
-        )
-        dpg.add_spacer(height=10)
-        dpg.add_button(
-            label="Start Translation",
-            tag="start_button",
-            callback=start_translation_thread,
-            enabled=False,
-        )
-        dpg.add_spacer(height=10)
-        with dpg.collapsing_header(label="Logs"):
-            with dpg.child_window(tag="log_window", height=250, border=True):
-                dpg.add_group(tag="log_window_content")
-        dpg.bind_font(default_font)
+            dpg.add_spacer(height=10)
+            dpg.add_button(
+                label="Start Translation",
+                tag="start_button",
+                callback=start_translation_thread,
+                enabled=False,
+            )
+            dpg.add_spacer(height=10)
+            with dpg.collapsing_header(label="Logs"):
+                with dpg.child_window(tag="log_window", height=250, border=True):
+                    dpg.add_group(tag="log_window_content")
 
     dpg.create_viewport(
         title="EasyMTL",
@@ -76,8 +113,11 @@ def build_gui():
         small_icon=resource_path("easymtl/assets/icon.ico"),
         large_icon=resource_path("easymtl/assets/icon.ico"),
     )
+    dpg.bind_font(default_font)
+    setup_themes()
     dpg.setup_dearpygui()
     dpg.show_viewport()
-    dpg.set_primary_window("Primary Window", True)
+    setup_window()
+    dpg.set_primary_window("primary_window", True)
     dpg.start_dearpygui()
     dpg.destroy_context()
