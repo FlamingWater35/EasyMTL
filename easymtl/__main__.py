@@ -23,20 +23,37 @@ def log_message(message):
 
 
 def extract_content_from_chapters(chapter_items, logger):
-    logger("Extracting content from selected chapters...")
-    full_content = ""
+    logger("Extracting content and preserving image locations...")
+    
+    full_content_for_api = ""
+    extraction_data = [] 
+
     for item in chapter_items:
         soup = BeautifulSoup(item.get_content(), "html.parser")
-        chapter_text = soup.get_text(separator="\n", strip=True)
-        full_content += chapter_text + "\n---\n"
+        body = soup.find('body')
+        if not body:
+            continue
+
+        image_tags_for_chapter = []
+        for i, img in enumerate(body.find_all('img')):
+            placeholder = f"\n[IMAGE_PLACEHOLDER_{i}]\n"
+            image_tags_for_chapter.append(str(img))
+            img.replace_with(placeholder)
+
+        chapter_text_with_placeholders = body.get_text(separator='\n', strip=True)
+        
+        full_content_for_api += chapter_text_with_placeholders + "\n---\n"
+        extraction_data.append((item.get_name(), image_tags_for_chapter))
+
     logger("Content extracted successfully.")
-    return full_content
+    return full_content_for_api, extraction_data
 
 
 def translate_text_with_gemini(text, logger):
     genai.configure(api_key=GEMINI_API_KEY)
     prompt = f"""Translate the following novel chapters into English.
 If a chapter has a title, enclose the translated title in double asterisks, like this: **Chapter Title**.
+Preserve any placeholder tags like `[IMAGE_PLACEHOLDER_N]` exactly as they appear in your translated output. Do not translate the content inside these tags.
 Keep the content of each chapter separate.
 Preserve the chapter separation markers ('---') at the end of each chapter's text.
 
@@ -67,9 +84,9 @@ def parse_translated_text(translated_text):
 
 
 def create_translated_epub(
-    original_path, translated_chapters, chapters_to_replace, logger
+    original_path, translated_chapters, chapters_to_replace, extraction_data, logger
 ):
-    logger("Creating new EPUB file...")
+    logger("Reconstructing EPUB with translated content...")
     dir_name, file_name = os.path.split(original_path)
     new_file_name = os.path.splitext(file_name)[0] + "_translated.epub"
     new_file_path = os.path.join(dir_name, new_file_name)
@@ -80,6 +97,7 @@ def create_translated_epub(
     body { font-family: serif; line-height: 1.6; margin: 5px; }
     h1 { text-align: center; font-weight: bold; page-break-before: always; margin-top: 2em; margin-bottom: 2em; }
     p { text-align: justify; text-indent: 1.5em; margin-top: 0; margin-bottom: 0; }
+    img { max-width: 100%; height: auto; display: block; margin-left: auto; margin-right: auto; padding-top: 1em; padding-bottom: 1em; }
     """
     style_item = epub.EpubItem(
         uid="style_default",
@@ -89,10 +107,10 @@ def create_translated_epub(
     )
     book.add_item(style_item)
 
+    image_map = {href: images for href, images in extraction_data}
+
     if len(translated_chapters) != len(chapters_to_replace):
-        logger(
-            f"Warning: Mismatch between requested chapters ({len(chapters_to_replace)}) and translated chapters ({len(translated_chapters)})."
-        )
+        logger(f"Warning: Chapter count mismatch. Proceeding with {min(len(translated_chapters), len(chapters_to_replace))} chapters.")
         min_len = min(len(translated_chapters), len(chapters_to_replace))
         translated_chapters = translated_chapters[:min_len]
         chapters_to_replace = chapters_to_replace[:min_len]
@@ -100,24 +118,43 @@ def create_translated_epub(
     for i, item_to_replace in enumerate(chapters_to_replace):
         item_in_new_book = book.get_item_with_href(item_to_replace.get_name())
         if item_in_new_book:
+            image_tags = image_map.get(item_to_replace.get_name(), [])
+            
             lines = translated_chapters[i].strip().split("\n")
-            title, body_content = f"Chapter {i+1}", ""
-
+            title_text = f"Chapter {i+1}"
+            body_content = ""
+            
+            start_index = 0
             if lines and lines[0].startswith("**") and lines[0].endswith("**"):
                 title_text = lines[0].strip("* ").strip()
                 body_content += f"<h1>{title_text}</h1>\n"
-                paragraphs = lines[1:]
+                start_index = 1
             else:
-                title_text = item_in_new_book.title or title
-                paragraphs = lines
+                title_text = item_in_new_book.title or title_text
+            
+            for line in lines[start_index:]:
+                clean_line = line.strip()
+                if not clean_line:
+                    continue
 
-            body_content += "".join(
-                f"<p>{p.strip()}</p>\n" for p in paragraphs if p.strip()
-            )
+                if clean_line.startswith("[IMAGE_PLACEHOLDER_") and clean_line.endswith("]"):
+                    try:
+                        img_index = int(clean_line.split('_')[-1].strip(']'))
+                        if img_index < len(image_tags):
+                            body_content += f"{image_tags[img_index]}\n"
+                        else:
+                            logger(f"Warning: Found placeholder for index {img_index}, but no matching image was stored.")
+                    except (ValueError, IndexError):
+                        body_content += f"<p>{clean_line}</p>\n"
+                else:
+                    body_content += f"<p>{clean_line}</p>\n"
+
             html_content = f"""<?xml version='1.0' encoding='utf-8'?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head><title>{title_text}</title><link rel="stylesheet" type="text/css" href="default.css" /></head>
-<body>{body_content}</body></html>"""
+<body>
+{body_content}
+</body></html>"""
             item_in_new_book.set_content(html_content.encode("utf-8"))
             item_in_new_book.add_item(style_item)
 
@@ -134,25 +171,21 @@ def run_translation_process(epub_path, num_chapters):
         book = epub.read_epub(epub_path)
         all_chapters = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
         chapters_to_translate_items = all_chapters[:num_chapters]
-        log_message(
-            f"Selected {len(chapters_to_translate_items)} of {len(all_chapters)} chapters."
-        )
+        log_message(f"Selected {len(chapters_to_translate_items)} of {len(all_chapters)} chapters.")
 
-        extracted_text = extract_content_from_chapters(
+        extracted_content_for_api, extraction_data = extract_content_from_chapters(
             chapters_to_translate_items, log_message
         )
-        if not extracted_text:
+        if not extracted_content_for_api:
             log_message("ERROR: Failed to extract text.")
             return
 
-        translated_text = translate_text_with_gemini(extracted_text, log_message)
+        translated_text = translate_text_with_gemini(extracted_content_for_api, log_message)
         if translated_text:
             parsed_chapters = parse_translated_text(translated_text)
-            log_message(
-                f"Parsed {len(parsed_chapters)} translated chapters from API response."
-            )
+            log_message(f"Parsed {len(parsed_chapters)} translated chapters from API response.")
             create_translated_epub(
-                epub_path, parsed_chapters, chapters_to_translate_items, log_message
+                epub_path, parsed_chapters, chapters_to_translate_items, extraction_data, log_message
             )
         else:
             log_message("Translation failed. The process was halted.")
