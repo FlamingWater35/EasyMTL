@@ -29,7 +29,7 @@ def extract_content_from_chapters(chapter_items, logger):
 
 
 def create_translated_epub(
-    original_path, translated_chapters, chapters_to_replace, extraction_data, logger
+    original_path, translation_map, chapters_to_replace, extraction_data, logger
 ):
     logger("Reconstructing EPUB with translated content...")
     dir_name, file_name = os.path.split(original_path)
@@ -54,16 +54,25 @@ def create_translated_epub(
     book.add_item(style_item)
     image_map = {href: images for href, images in extraction_data}
 
-    for i, item_to_replace in enumerate(chapters_to_replace):
-        item_in_new_book = book.get_item_with_href(item_to_replace.get_name())
-        if item_in_new_book:
-            image_tags = image_map.get(item_to_replace.get_name(), [])
-            lines = translated_chapters[i].strip().split("\n")
-            title_text, body_content, start_index = f"Chapter {i+1}", "", 0
+    for item_to_replace in chapters_to_replace:
+        original_href = item_to_replace.get_name()
+
+        if original_href in translation_map:
+            item_in_new_book = book.get_item_with_href(original_href)
+            if not item_in_new_book:
+                continue
+
+            translated_content = translation_map[original_href]
+            image_tags = image_map.get(original_href, [])
+            lines = translated_content.strip().split("\n")
+
+            title_text, body_content, start_index = f"Chapter", "", 0
 
             if lines and lines[0].startswith("**") and lines[0].endswith("**"):
                 title_text, start_index = lines[0].strip("* ").strip(), 1
                 body_content += f"<h1>{title_text}</h1>\n"
+            else:
+                title_text = item_in_new_book.title or title_text
 
             for line in lines[start_index:]:
                 clean_line = line.strip()

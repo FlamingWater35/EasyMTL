@@ -5,7 +5,7 @@ from .config import GEMINI_API_KEY
 def translate_text_with_gemini(text, logger):
     genai.configure(api_key=GEMINI_API_KEY)
     prompt = f"""Translate the following novel chapters into English.
-If a chapter has a title, enclose the translated title in double asterisks, like this: **Chapter Title**.
+If a chapter has a title, enclose the translated title in double asterisks, like this: **Chapter Title**. Always keep the chapter number in the title.
 Preserve any placeholder tags like `[IMAGE_PLACEHOLDER_N]` exactly as they appear in your translated output. Do not translate the content inside these tags.
 Keep the content of each chapter separate.
 Preserve the chapter separation markers ('---') at the end of each chapter's text.
