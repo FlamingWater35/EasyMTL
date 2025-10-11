@@ -1,3 +1,4 @@
+import ctypes
 import os
 import dearpygui.dearpygui as dpg
 import pywinstyles
@@ -77,7 +78,9 @@ def build_gui():
     with dpg.window(tag="primary_window", label="EasyMTL Translator"):
         with dpg.child_window(tag="main_window"):
             dpg.add_text("", tag="app_state_filepath", show=False)
-            dpg.add_input_int(tag="app_state_total_chapters", show=False, default_value=0)
+            dpg.add_input_int(
+                tag="app_state_total_chapters", show=False, default_value=0
+            )
             dpg.add_text("1. Select EPUB File")
             with dpg.group(horizontal=True):
                 dpg.add_button(
@@ -106,12 +109,20 @@ def build_gui():
                 with dpg.child_window(tag="log_window", height=250, border=True):
                     dpg.add_group(tag="log_window_content")
 
+    user32 = ctypes.windll.user32
+    screen_width, screen_height = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
     dpg.create_viewport(
         title="EasyMTL",
         width=800,
         height=600,
         small_icon=resource_path("easymtl/assets/icon.ico"),
         large_icon=resource_path("easymtl/assets/icon.ico"),
+    )
+    dpg.set_viewport_pos(
+        [
+            (screen_width / 2) - (dpg.get_viewport_width() / 2),
+            (screen_height / 2) - (dpg.get_viewport_height() / 2),
+        ]
     )
     dpg.bind_font(default_font)
     setup_themes()

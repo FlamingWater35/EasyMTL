@@ -11,4 +11,4 @@ def log_message(message):
     print(message)
     if dpg.is_dearpygui_running():
         dpg.add_text(message, parent="log_window_content", wrap=0)
-        dpg.set_y_scroll("log_window", dpg.get_y_scroll_max("log_window"))
+        dpg.set_y_scroll("log_window", -1.0)
