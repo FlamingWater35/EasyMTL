@@ -36,6 +36,14 @@ def setup_themes():
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 8, 5)
             dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 2, 2)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (148, 147, 150))
+            dpg.add_theme_color(dpg.mvThemeCol_Text, (123, 123, 123))
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (75, 75, 75))
+        with dpg.theme_component(dpg.mvProgressBar):
+            dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 4, 4)
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 2, 2)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (183, 28, 28))
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (40, 53, 147))
+            dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, (27, 94, 32))
         with dpg.theme_component(dpg.mvInputInt):
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 2.5)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (191, 54, 12))
@@ -46,6 +54,7 @@ def setup_themes():
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 4)
             dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 2, 2)
     dpg.bind_item_theme("main_window", window_theme)
+    dpg.bind_item_theme("api_key_modal_content", window_theme)
 
 
 def select_file_callback(sender, app_data):
@@ -108,7 +117,7 @@ def build_gui():
         ]
     )
 
-    api_modal_width = dpg.get_viewport_width() / 1.5
+    api_modal_width = dpg.get_viewport_width() / 2
     api_modal_height = dpg.get_viewport_height() / 3
     with dpg.window(
         label="API Key Setup",
