@@ -55,6 +55,7 @@ def setup_themes():
             dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 2, 2)
     dpg.bind_item_theme("main_window", window_theme)
     dpg.bind_item_theme("api_key_modal_content", window_theme)
+    dpg.bind_item_theme("cover_tool_modal_content", window_theme)
 
 
 def select_file_callback(sender, app_data):
@@ -167,34 +168,43 @@ def build_gui():
 
     with dpg.window(
         label="Cover Page Tool",
-        modal=True,
         show=False,
+        no_collapse=True,
         tag="cover_tool_modal",
-        width=450,
-        height=200,
+        width=api_modal_width,
+        height=api_modal_height,
+        pos=[
+            (dpg.get_viewport_width() / 2) - (api_modal_width / 2),
+            (dpg.get_viewport_height() / 2) - (api_modal_height / 2),
+        ],
     ):
-        dpg.add_text(
-            "This tool will create a copy of an EPUB file and replace its first page with a proper, centered cover image.",
-            wrap=440,
-        )
-        dpg.add_spacer(height=10)
-        dpg.add_text("It finds the cover image from the book's metadata.", wrap=440)
-        dpg.add_spacer(height=20)
-        with dpg.group(horizontal=True):
-            dpg.add_button(
-                label="Select EPUB File",
-                tag="cover_tool_button",
-                width=-1,
-                callback=lambda: dpg.show_item("cover_tool_file_dialog"),
+        with dpg.child_window(
+            tag="cover_tool_modal_content",
+            autosize_x=True,
+            autosize_y=True,
+        ):
+            dpg.add_text(
+                "This tool will create a copy of an EPUB file and replace its first page with a proper, centered cover image.",
+                wrap=0,
             )
+            dpg.add_spacer(height=10)
+            dpg.add_text("It finds the cover image from the book's metadata.", wrap=0)
+            dpg.add_spacer(height=20)
+            with dpg.group(horizontal=True):
+                dpg.add_button(
+                    label="Select EPUB File",
+                    tag="cover_tool_button",
+                    width=-1,
+                    callback=lambda: dpg.show_item("cover_tool_file_dialog"),
+                )
 
     with dpg.file_dialog(
         directory_selector=False,
         show=False,
         callback=select_cover_tool_file_callback,
         tag="cover_tool_file_dialog",
-        width=700,
-        height=400,
+        width=dpg.get_viewport_width() / 1.3,
+        height=dpg.get_viewport_height() / 1.5,
         modal=True,
     ):
         dpg.add_file_extension(".epub", color=(0, 255, 0, 255))

@@ -219,7 +219,6 @@ def run_cover_creation_process(epub_path):
     try:
         if dpg.is_dearpygui_running():
             dpg.configure_item("cover_tool_button", enabled=False)
-            dpg.configure_item("start_button", enabled=False)
 
         create_cover_page_from_metadata(epub_path, log_message)
 
@@ -232,8 +231,6 @@ def run_cover_creation_process(epub_path):
         log_message("--- Cover Process Finished ---")
         if dpg.is_dearpygui_running():
             dpg.configure_item("cover_tool_button", enabled=True)
-            if dpg.get_value("app_state_filepath"):
-                dpg.configure_item("start_button", enabled=True)
 
 
 def start_cover_creation_thread(epub_path):
