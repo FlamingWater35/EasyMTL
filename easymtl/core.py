@@ -31,6 +31,7 @@ def run_translation_process(epub_path, num_chapters):
 
         translation_map = {}
         all_extraction_data = []
+        stop_processing = False
 
         for i, chunk_items in enumerate(chapter_chunks):
             log_message(f"--- Processing Chunk {i + 1}/{len(chapter_chunks)} ---")
@@ -44,33 +45,57 @@ def run_translation_process(epub_path, num_chapters):
                 )
                 continue
 
-            translated_text_chunk = translate_text_with_gemini(
-                chunk_content, log_message
-            )
-            if translated_text_chunk:
-                parsed_chapters_chunk = parse_translated_text(
-                    translated_text_chunk, log_message
+            parsed_chapters_chunk = None
+            for attempt in range(2):
+                is_retry = attempt > 0
+                response = translate_text_with_gemini(
+                    chunk_content, log_message, is_retry=is_retry
                 )
 
+                if response['status'] == 'SUCCESS':
+                    parsed_chapters_chunk = parse_translated_text(response['text'])
+                    if len(parsed_chapters_chunk) == len(chunk_items):
+                        log_message(f"Successfully translated {len(parsed_chapters_chunk)} chapters in this chunk.")
+                        break
+                    else:
+                        log_message(f"Warning: Chunk {i+1} sent {len(chunk_items)} but received {len(parsed_chapters_chunk)}. Retrying...")
+                
+                elif response['status'] == 'OUTPUT_TRUNCATED':
+                    log_message("Accepting truncated output. The last chapter in this chunk may be incomplete. No retry will be attempted.")
+                    parsed_chapters_chunk = parse_translated_text(response['text'])
+                    break
+                
+                elif response['status'] == 'TOKEN_LIMIT_EXCEEDED':
+                    log_message("Stopping translation process due to input token limit.")
+                    stop_processing = True
+                    break
+                
+                elif response['status'] == 'FAILED':
+                    log_message(f"API call failed for chunk {i+1}. Retrying...")
+                time.sleep(1)
+
+            if parsed_chapters_chunk:
                 if len(parsed_chapters_chunk) != len(chunk_items):
                     log_message(
-                        f"Warning: Chunk {i+1} sent {len(chunk_items)} chapters but received {len(parsed_chapters_chunk)}. Some chapters may not be replaced."
+                        f"Warning: After retry, chunk {i+1} still has a chapter count mismatch. Proceeding with {len(parsed_chapters_chunk)} chapters."
                     )
-
                 for original_item, translated_text in zip(
                     chunk_items, parsed_chapters_chunk
                 ):
                     translation_map[original_item.get_name()] = translated_text
-
                 all_extraction_data.extend(chunk_extraction_data)
             else:
                 log_message(
-                    f"ERROR: Translation failed for chunk {i+1}. This chunk will be skipped."
+                    f"ERROR: Translation failed for chunk {i+1} after all retries. This chunk will be skipped."
                 )
 
             progress = (i + 1) / len(chapter_chunks)
             if dpg.is_dearpygui_running():
                 dpg.set_value("progress_bar", progress)
+
+            if stop_processing:
+                log_message("Halting further processing as requested.")
+                break
 
             time.sleep(1)
 
