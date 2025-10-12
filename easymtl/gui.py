@@ -56,7 +56,7 @@ def select_file_callback(sender, app_data):
         dpg.configure_item("chapter_count_input", enabled=True)
         dpg.configure_item("start_button", enabled=True)
     except Exception as e:
-        log_message(f"Error reading EPUB: {e}")
+        log_message(f"Error reading EPUB: {e}", level="ERROR")
         dpg.set_value("chapter_info_text", "Could not read this EPUB file.")
         dpg.configure_item("chapter_count_input", enabled=False)
         dpg.configure_item("start_button", enabled=False)

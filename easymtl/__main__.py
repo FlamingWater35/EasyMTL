@@ -6,7 +6,7 @@ from .utils import log_message
 
 def run_app():
     if not GEMINI_API_KEY or "YOUR_GEMINI_API_KEY" in GEMINI_API_KEY:
-        log_message("ERROR: Gemini API key is not set. Please edit easymtl/config.py")
+        log_message("Gemini API key is not set. Please edit easymtl/config.py", level="ERROR")
         sys.exit(1)
 
     build_gui()

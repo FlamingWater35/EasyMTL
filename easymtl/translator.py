@@ -21,7 +21,7 @@ Preserve the chapter separation markers ('---') at the end of each chapter's tex
         prompt = base_prompt
 
     if is_retry:
-        logger("Retrying translation with additional instructions...")
+        logger("Retrying translation with additional instructions...", level="WARNING")
     else:
         logger("Sending text to Gemini for translation. This may take a while...")
 
@@ -37,14 +37,21 @@ Preserve the chapter separation markers ('---') at the end of each chapter's tex
         finish_reason = response.candidates[0].finish_reason
 
         if finish_reason.name == "MAX_TOKENS":
-            logger("Warning: The model's output was truncated because it reached the maximum token limit.")
-            return {'status': 'OUTPUT_TRUNCATED', 'text': response.text}
+            logger(
+                "The model's output was truncated because it reached the maximum token limit.",
+                level="WARNING",
+            )
+            return {"status": "OUTPUT_TRUNCATED", "text": response.text}
         elif finish_reason.name == "STOP":
-            logger("Translation received successfully.")
-            return {'status': 'SUCCESS', 'text': response.text}
+            logger("Translation received successfully.", level="SUCCESS")
+            return {"status": "SUCCESS", "text": response.text}
         else:
-            logger(f"Warning: Translation finished for an unusual reason: {finish_reason.name}. Treating as failure.")
-            return {'status': 'FAILED', 'text': None}
+            logger(
+                f"Translation finished for an unusual reason: {finish_reason.name}. Treating as failure.",
+                level="WARNING",
+            )
+            return {"status": "FAILED", "text": None}
+
     except Exception as e:
         error_message = str(e).lower()
         if (
@@ -52,10 +59,13 @@ Preserve the chapter separation markers ('---') at the end of each chapter's tex
             or "token" in error_message
             or "resource has been exhausted" in error_message
         ):
-            logger(f"ERROR: API token/quota limit likely exceeded. {e}")
+            logger(
+                f"API token/quota limit likely exceeded (input too large). {e}",
+                level="ERROR",
+            )
             return {"status": "TOKEN_LIMIT_EXCEEDED", "text": None}
         else:
-            logger(f"ERROR: An error occurred with the Gemini API: {e}")
+            logger(f"An error occurred with the Gemini API: {e}", level="ERROR")
             return {"status": "FAILED", "text": None}
 
 

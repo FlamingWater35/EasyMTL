@@ -24,7 +24,7 @@ def extract_content_from_chapters(chapter_items, logger):
         full_content_for_api += chapter_text + "\n---\n"
         extraction_data.append((item.get_name(), image_tags_for_chapter))
 
-    logger("Content extracted successfully.")
+    logger("Content extracted successfully.", level="SUCCESS")
     return full_content_for_api, extraction_data
 
 
@@ -97,6 +97,6 @@ def create_translated_epub(
 
     try:
         epub.write_epub(new_file_path, book, {})
-        logger(f"SUCCESS: Translated e-book saved as: {new_file_path}")
+        logger(f"Translated e-book saved as: {new_file_path}", level="SUCCESS")
     except Exception as e:
-        logger(f"ERROR: Could not write translated EPUB file: {e}")
+        logger(f"Could not write translated EPUB file: {e}", level="ERROR")
