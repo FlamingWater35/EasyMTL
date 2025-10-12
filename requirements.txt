@@ -1,5 +1,5 @@
 ebooklib
-google-generativeai
+google-genai
 beautifulsoup4
 dearpygui
 pywin32

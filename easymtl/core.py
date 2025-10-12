@@ -4,14 +4,19 @@ import time
 from ebooklib import epub, ITEM_DOCUMENT
 import dearpygui.dearpygui as dpg
 
-from .config import CHAPTER_CHUNK_SIZE
+from .config import DEFAULT_MODEL, TOKEN_CHUNK_LIMIT
 from .utils import format_time, log_message
 from .epub_handler import (
     create_cover_page_from_metadata,
     extract_content_from_chapters,
     create_translated_epub,
 )
-from .translator import translate_text_with_gemini, parse_translated_text
+from .translator import (
+    count_tokens,
+    list_models,
+    translate_text_with_gemini,
+    parse_translated_text,
+)
 
 
 def run_translation_process(epub_path, start_chapter, end_chapter):
@@ -34,12 +39,35 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
             f"Selected chapters {start_chapter} to {end_chapter} ({len(chapters_to_translate_items)} total)."
         )
 
-        chunks = [
-            chapters_to_translate_items[i : i + CHAPTER_CHUNK_SIZE]
-            for i in range(0, len(chapters_to_translate_items), CHAPTER_CHUNK_SIZE)
-        ]
         log_message(
-            f"Dividing the task into an initial {len(chunks)} chunks of up to {CHAPTER_CHUNK_SIZE} chapters each."
+            f"Building dynamic chunks with a token limit of {TOKEN_CHUNK_LIMIT}..."
+        )
+        chunks = []
+        current_chunk_items = []
+        current_chunk_tokens = 0
+
+        for item in chapters_to_translate_items:
+            temp_content, _ = extract_content_from_chapters(
+                [item], log_message
+            )
+            item_tokens = count_tokens(temp_content)
+
+            if current_chunk_items and (
+                current_chunk_tokens + item_tokens > TOKEN_CHUNK_LIMIT
+            ):
+                chunks.append(current_chunk_items)
+                current_chunk_items = []
+                current_chunk_tokens = 0
+
+            current_chunk_items.append(item)
+            current_chunk_tokens += item_tokens
+
+        if current_chunk_items:
+            chunks.append(current_chunk_items)
+
+        log_message(
+            f"Dynamically created {len(chunks)} chunks based on token count.",
+            level="SUCCESS",
         )
 
         translation_map = {}
@@ -47,7 +75,7 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
 
         while chunks:
             chunk_items = chunks.pop(0)
-            log_message(f"--- Processing Chunk (Size: {len(chunk_items)}) ---")
+            log_message(f"--- Processing Chunk (Size: {len(chunk_items)} chapters) ---")
 
             chunk_content, chunk_extraction_data = extract_content_from_chapters(
                 chunk_items, log_message
@@ -80,40 +108,31 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
             if chunk_translation_map:
                 translation_map.update(chunk_translation_map)
                 all_extraction_data.extend(chunk_extraction_data)
-
                 chapters_processed += len(chunk_translation_map)
 
                 if response_status == "OUTPUT_TRUNCATED":
                     log_message(
-                        f"Chunk was truncated. Identifying and re-queuing missing chapters.",
+                        f"Chunk was truncated. Re-queuing missing chapters.",
                         level="WARNING",
                     )
-
                     translated_ids = set(chunk_translation_map.keys())
                     untranslated_items = [
                         item
                         for item in chunk_items
                         if item.get_name() not in translated_ids
                     ]
-
                     if untranslated_items:
                         log_message(
                             f"Re-queuing a new chunk with {len(untranslated_items)} remaining chapters.",
                             level="INFO",
                         )
                         chunks.insert(0, untranslated_items)
-                    else:
-                        log_message(
-                            "All chapters in the truncated chunk were processed.",
-                            level="SUCCESS",
-                        )
 
             elif response_status == "TOKEN_LIMIT_EXCEEDED":
                 log_message(
                     "Halting translation due to input token limit.", level="ERROR"
                 )
                 break
-
             else:
                 log_message(
                     f"Translation failed for this chunk after all retries. Skipping.",
@@ -184,9 +203,9 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
 
 
 def start_translation_thread():
-    if not os.getenv("GEMINI_API_KEY"):
+    if not os.getenv("GOOGLE_API_KEY"):
         log_message(
-            "ERROR: Gemini API Key is not set. Please set it via the Settings menu.",
+            "ERROR: API Key is not set. Please use Settings > Set API Key.",
             level="ERROR",
         )
         dpg.show_item("api_key_modal")
@@ -212,6 +231,33 @@ def start_translation_thread():
     thread = threading.Thread(
         target=run_translation_process, args=(epub_path, start_chapter, end_chapter)
     )
+    thread.start()
+
+
+def fetch_models_from_api():
+    if not os.getenv("GOOGLE_API_KEY"):
+        log_message("Cannot fetch models: API Key is not set.", level="WARNING")
+        if dpg.is_dearpygui_running():
+            dpg.configure_item("model_combo", items=[DEFAULT_MODEL])
+            dpg.set_value("model_combo", DEFAULT_MODEL)
+        return
+
+    log_message("Fetching available models from the API...")
+    if dpg.is_dearpygui_running():
+        dpg.configure_item("model_combo", items=["Loading..."])
+        dpg.set_value("model_combo", "Loading...")
+
+    models = list_models(log_message)
+
+    if dpg.is_dearpygui_running():
+        dpg.configure_item("model_combo", items=models)
+        current_model = os.getenv("GEMINI_MODEL_NAME", models[0])
+        dpg.set_value("model_combo", current_model)
+    log_message(f"Found {len(models)} available models.", level="SUCCESS")
+
+
+def start_model_fetch_thread():
+    thread = threading.Thread(target=fetch_models_from_api)
     thread.start()
 
 

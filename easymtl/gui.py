@@ -6,7 +6,11 @@ from win32 import win32gui
 from ebooklib import epub, ITEM_DOCUMENT
 
 from .utils import resource_path, log_message
-from .core import start_cover_creation_thread, start_translation_thread
+from .core import (
+    start_cover_creation_thread,
+    start_model_fetch_thread,
+    start_translation_thread,
+)
 
 
 def setup_window():
@@ -93,9 +97,10 @@ def select_file_callback(sender, app_data):
 def save_api_key_callback():
     api_key = dpg.get_value("api_key_input")
     if api_key:
-        os.environ["GEMINI_API_KEY"] = api_key
+        os.environ["GOOGLE_API_KEY"] = api_key
         log_message("API Key has been set for this session.", level="SUCCESS")
         dpg.configure_item("api_key_modal", show=False)
+        start_model_fetch_thread()
     else:
         log_message("API Key field cannot be empty.", level="WARNING")
 
@@ -104,6 +109,19 @@ def select_cover_tool_file_callback(sender, app_data):
     filepath = app_data.get("file_path_name")
     if filepath:
         start_cover_creation_thread(filepath)
+
+
+def open_model_selector_callback():
+    if not dpg.get_item_configuration("model_combo")["items"]:
+        start_model_fetch_thread()
+    dpg.configure_item("model_select_modal", show=True)
+
+
+def save_model_callback():
+    selected_model = dpg.get_value("model_combo")
+    os.environ["GEMINI_MODEL_NAME"] = selected_model
+    log_message(f"Model for this session set to: {selected_model}", level="SUCCESS")
+    dpg.configure_item("model_select_modal", show=False)
 
 
 def build_gui():
@@ -209,12 +227,39 @@ def build_gui():
     ):
         dpg.add_file_extension(".epub", color=(0, 255, 0, 255))
 
+    with dpg.window(
+        label="Model Selection",
+        modal=True,
+        show=False,
+        tag="model_select_modal",
+        no_close=True,
+        width=450,
+        height=200,
+    ):
+        dpg.add_text("Select the Gemini model to use for translation.", wrap=440)
+        dpg.add_text("This setting will only apply to the current session.", wrap=440)
+        dpg.add_spacer(height=10)
+
+        dpg.add_combo(tag="model_combo", label="Model", items=[], width=-1)
+        dpg.add_spacer(height=20)
+
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Set Model", width=120, callback=save_model_callback)
+            dpg.add_button(
+                label="Cancel",
+                width=120,
+                callback=lambda: dpg.configure_item("model_select_modal", show=False),
+            )
+
     with dpg.window(tag="primary_window", label="EasyMTL Translator"):
         with dpg.menu_bar():
             with dpg.menu(label="Settings"):
                 dpg.add_menu_item(
                     label="Set API Key",
                     callback=lambda: dpg.configure_item("api_key_modal", show=True),
+                )
+                dpg.add_menu_item(
+                    label="Select Model", callback=open_model_selector_callback
                 )
             with dpg.menu(label="Tools"):
                 dpg.add_menu_item(
