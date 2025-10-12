@@ -24,5 +24,5 @@ def log_message(message, level="INFO"):
     log_color = colors.get(level, colors["INFO"])
 
     if dpg.is_dearpygui_running():
-        dpg.add_text(message, parent="log_window_content", color=log_color)
+        dpg.add_text(message, parent="log_window_content", color=log_color, wrap=0)
         dpg.set_y_scroll("log_window", -1.0)

@@ -123,7 +123,11 @@ def build_gui():
                     callback=lambda: dpg.configure_item("api_key_modal", show=True),
                 )
 
-        with dpg.child_window(tag="main_window"):
+        with dpg.child_window(
+            tag="main_window",
+            autosize_x=True,
+            auto_resize_y=True,
+        ):
             dpg.add_text("", tag="app_state_filepath", show=False)
             dpg.add_input_int(
                 tag="app_state_total_chapters", show=False, default_value=0
@@ -137,9 +141,9 @@ def build_gui():
             dpg.add_text("", tag="chapter_info_text")
             dpg.add_spacer(height=5)
             dpg.add_text("2. Select Chapter Range to Translate")
-            with dpg.group(horizontal=True):
+            with dpg.group():
                 dpg.add_input_int(
-                    label="Start Chapter",
+                    label="Start",
                     tag="start_chapter_input",
                     default_value=1,
                     min_value=1,
@@ -147,7 +151,7 @@ def build_gui():
                     enabled=False,
                 )
                 dpg.add_input_int(
-                    label="End Chapter",
+                    label="End",
                     tag="end_chapter_input",
                     default_value=1,
                     min_value=1,
@@ -164,13 +168,21 @@ def build_gui():
             dpg.add_spacer(height=15)
             dpg.add_text("Progress:")
             with dpg.group(horizontal=True):
-                dpg.add_progress_bar(tag="progress_bar", default_value=0.0)
-                dpg.add_text("Elapsed: 00:00", tag="elapsed_time_text")
-                dpg.add_text("ETA: --:--", tag="eta_time_text")
+                dpg.add_progress_bar(tag="progress_bar", default_value=0.0, width=-170)
+                with dpg.group():
+                    dpg.add_text("Elapsed: 00:00", tag="elapsed_time_text")
+                    dpg.add_text("ETA: --:--", tag="eta_time_text")
+                    dpg.add_spacer(height=5)
             dpg.add_spacer(height=5)
 
             with dpg.collapsing_header(label="Logs"):
-                with dpg.child_window(tag="log_window", height=250, border=True):
+                with dpg.child_window(
+                    tag="log_window",
+                    height=250,
+                    border=True,
+                    autosize_x=True,
+                    auto_resize_y=True,
+                ):
                     dpg.add_group(tag="log_window_content")
 
     user32 = ctypes.windll.user32
