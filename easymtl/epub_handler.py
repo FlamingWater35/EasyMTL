@@ -4,11 +4,14 @@ from bs4 import BeautifulSoup
 
 
 def extract_content_from_chapters(chapter_items, logger):
-    logger("Extracting content and preserving image locations...")
+    logger("Extracting content and adding unique chapter identifiers...")
     full_content_for_api = ""
     extraction_data = []
 
     for item in chapter_items:
+        chapter_id = item.get_name()
+        id_tag = f"[CHAPTER_ID::{chapter_id}]"
+
         soup = BeautifulSoup(item.get_content(), "html.parser")
         body = soup.find("body")
         if not body:
@@ -21,8 +24,8 @@ def extract_content_from_chapters(chapter_items, logger):
             img.replace_with(placeholder)
 
         chapter_text = body.get_text(separator="\n", strip=True)
-        full_content_for_api += chapter_text + "\n---\n"
-        extraction_data.append((item.get_name(), image_tags_for_chapter))
+        full_content_for_api += f"{id_tag}\n{chapter_text}\n---\n"
+        extraction_data.append((chapter_id, image_tags_for_chapter))
 
     logger("Content extracted successfully.", level="SUCCESS")
     return full_content_for_api, extraction_data

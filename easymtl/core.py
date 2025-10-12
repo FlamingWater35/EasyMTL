@@ -18,100 +18,106 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
         all_chapters = list(book.get_items_of_type(ITEM_DOCUMENT))
         chapters_to_translate_items = all_chapters[start_chapter - 1 : end_chapter]
         log_message(
-            f"Selected {len(chapters_to_translate_items)} of {len(all_chapters)} chapters."
+            f"Selected chapters {start_chapter} to {end_chapter} ({len(chapters_to_translate_items)} total)."
         )
 
-        chapter_chunks = [
+        chunks = [
             chapters_to_translate_items[i : i + CHAPTER_CHUNK_SIZE]
             for i in range(0, len(chapters_to_translate_items), CHAPTER_CHUNK_SIZE)
         ]
         log_message(
-            f"Dividing the task into {len(chapter_chunks)} chunks of up to {CHAPTER_CHUNK_SIZE} chapters each."
+            f"Dividing the task into an initial {len(chunks)} chunks of up to {CHAPTER_CHUNK_SIZE} chapters each."
         )
 
         translation_map = {}
         all_extraction_data = []
-        stop_processing = False
 
-        for i, chunk_items in enumerate(chapter_chunks):
-            log_message(f"--- Processing Chunk {i + 1}/{len(chapter_chunks)} ---")
+        total_chapters_to_process = len(chapters_to_translate_items)
+        chapters_processed = 0
+
+        while chunks:
+            chunk_items = chunks.pop(0)
+            log_message(f"--- Processing Chunk (Size: {len(chunk_items)}) ---")
 
             chunk_content, chunk_extraction_data = extract_content_from_chapters(
                 chunk_items, log_message
             )
             if not chunk_content:
                 log_message(
-                    f"Warning: Failed to extract text from chunk {i+1}. Skipping."
+                    f"Failed to extract text from chunk. Skipping.", level="WARNING"
                 )
                 continue
 
-            parsed_chapters_chunk = None
+            chunk_translation_map = None
+            response_status = None
+
             for attempt in range(2):
                 is_retry = attempt > 0
                 response = translate_text_with_gemini(
                     chunk_content, log_message, is_retry=is_retry
                 )
+                response_status = response["status"]
 
-                if response["status"] == "SUCCESS":
-                    parsed_chapters_chunk = parse_translated_text(response["text"])
-                    if len(parsed_chapters_chunk) == len(chunk_items):
-                        log_message(
-                            f"Successfully translated {len(parsed_chapters_chunk)} chapters.",
-                            level="SUCCESS",
-                        )
-                        break
-                    else:
-                        log_message(
-                            f"Sent {len(chunk_items)} chapters but received {len(parsed_chapters_chunk)}. Retrying...",
-                            level="WARNING",
-                        )
-
-                elif response["status"] == "OUTPUT_TRUNCATED":
-                    log_message(
-                        "Accepting truncated output. Last chapter may be incomplete.",
-                        level="WARNING",
-                    )
-                    parsed_chapters_chunk = parse_translated_text(response["text"])
+                if response_status in ["SUCCESS", "OUTPUT_TRUNCATED"]:
+                    chunk_translation_map = parse_translated_text(response["text"])
                     break
-
-                elif response["status"] == "TOKEN_LIMIT_EXCEEDED":
-                    log_message(
-                        "Stopping translation due to input token limit.", level="ERROR"
-                    )
-                    stop_processing = True
+                elif response_status == "TOKEN_LIMIT_EXCEEDED":
                     break
-
-                elif response["status"] == "FAILED":
-                    log_message(
-                        f"API call failed for chunk {i+1}. Retrying...", level="ERROR"
-                    )
-
+                elif response_status == "FAILED":
+                    log_message(f"API call failed. Retrying...", level="ERROR")
                 time.sleep(1)
 
-            if parsed_chapters_chunk:
-                if len(parsed_chapters_chunk) != len(chunk_items):
+            if chunk_translation_map:
+                translation_map.update(chunk_translation_map)
+                all_extraction_data.extend(chunk_extraction_data)
+
+                chapters_processed += len(chunk_translation_map)
+
+                if response_status == "OUTPUT_TRUNCATED":
                     log_message(
-                        f"After retry, chunk still has mismatch. Proceeding with {len(parsed_chapters_chunk)} chapters.",
+                        f"Chunk was truncated. Identifying and re-queuing missing chapters.",
                         level="WARNING",
                     )
-                for original_item, translated_text in zip(
-                    chunk_items, parsed_chapters_chunk
-                ):
-                    translation_map[original_item.get_name()] = translated_text
-                all_extraction_data.extend(chunk_extraction_data)
+
+                    translated_ids = set(chunk_translation_map.keys())
+                    untranslated_items = [
+                        item
+                        for item in chunk_items
+                        if item.get_name() not in translated_ids
+                    ]
+
+                    if untranslated_items:
+                        log_message(
+                            f"Re-queuing a new chunk with {len(untranslated_items)} remaining chapters.",
+                            level="INFO",
+                        )
+                        chunks.insert(0, untranslated_items)
+                    else:
+                        log_message(
+                            "All chapters in the truncated chunk were processed.",
+                            level="SUCCESS",
+                        )
+
+            elif response_status == "TOKEN_LIMIT_EXCEEDED":
+                log_message(
+                    "Halting translation due to input token limit.", level="ERROR"
+                )
+                break
+
             else:
                 log_message(
-                    f"Translation failed for chunk {i+1} after all retries. Skipping.",
+                    f"Translation failed for this chunk after all retries. Skipping.",
                     level="ERROR",
                 )
+                chapters_processed += len(chunk_items)
 
-            progress = (i + 1) / len(chapter_chunks)
+            progress = (
+                chapters_processed / total_chapters_to_process
+                if total_chapters_to_process > 0
+                else 0
+            )
             if dpg.is_dearpygui_running():
                 dpg.set_value("progress_bar", progress)
-
-            if stop_processing:
-                log_message("Halting further processing as requested.", level="WARNING")
-                break
 
             time.sleep(1)
 
@@ -131,10 +137,7 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
             )
 
     except Exception as e:
-        log_message(
-            f"An unexpected error occurred in the translation thread: {e}",
-            level="ERROR",
-        )
+        log_message(f"An unexpected error occurred: {e}", level="ERROR")
     finally:
         log_message("--- Process Finished ---")
         if dpg.is_dearpygui_running():
@@ -147,10 +150,16 @@ def start_translation_thread():
     start_chapter = dpg.get_value("start_chapter_input")
     end_chapter = dpg.get_value("end_chapter_input")
     if start_chapter > end_chapter:
-        log_message("Start chapter cannot be greater than the end chapter.", level="ERROR")
+        log_message(
+            "Start chapter cannot be greater than the end chapter.", level="ERROR"
+        )
         return
-    if not (1 <= start_chapter <= total_chapters and 1 <= end_chapter <= total_chapters):
-        log_message(f"Chapter range must be between 1 and {total_chapters}.", level="ERROR")
+    if not (
+        1 <= start_chapter <= total_chapters and 1 <= end_chapter <= total_chapters
+    ):
+        log_message(
+            f"Chapter range must be between 1 and {total_chapters}.", level="ERROR"
+        )
         return
     dpg.configure_item("start_button", enabled=False)
     thread = threading.Thread(
