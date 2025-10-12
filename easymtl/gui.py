@@ -18,6 +18,10 @@ def setup_window():
 
 
 def setup_themes():
+    with dpg.font_registry():
+        default_font = dpg.add_font(resource_path("easymtl/assets/font.otf"), 22)
+    dpg.bind_font(default_font)
+
     with dpg.theme() as window_theme:
         with dpg.theme_component(dpg.mvChildWindow):
             dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 15, 10)
@@ -87,33 +91,63 @@ def save_api_key_callback():
 
 def build_gui():
     dpg.create_context()
-    with dpg.font_registry():
-        default_font = dpg.add_font(resource_path("easymtl/assets/font.otf"), 22)
 
+    user32 = ctypes.windll.user32
+    screen_width, screen_height = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    dpg.create_viewport(
+        title="EasyMTL",
+        width=1000,
+        height=800,
+        small_icon=resource_path("easymtl/assets/icon.ico"),
+        large_icon=resource_path("easymtl/assets/icon.ico"),
+    )
+    dpg.set_viewport_pos(
+        [
+            (screen_width / 2) - (dpg.get_viewport_width() / 2),
+            (screen_height / 2) - (dpg.get_viewport_height() / 2),
+        ]
+    )
+
+    api_modal_width = dpg.get_viewport_width() / 1.5
+    api_modal_height = dpg.get_viewport_height() / 3
     with dpg.window(
         label="API Key Setup",
         modal=True,
         show=False,
         tag="api_key_modal",
         no_close=True,
-        width=450,
+        width=api_modal_width,
+        height=api_modal_height,
+        pos=[
+            (dpg.get_viewport_width() / 2) - (api_modal_width / 2),
+            (dpg.get_viewport_height() / 2) - (api_modal_height / 2),
+        ],
     ):
-        dpg.add_text("Please paste your Google Gemini API key below.")
-        dpg.add_text("This key will only be stored for the current session.", wrap=440)
-        dpg.add_spacer(height=10)
-
-        dpg.add_input_text(
-            tag="api_key_input", label="API Key", password=True, width=-1
-        )
-        dpg.add_spacer(height=10)
-
-        with dpg.group(horizontal=True):
-            dpg.add_button(label="Save Key", width=120, callback=save_api_key_callback)
-            dpg.add_button(
-                label="Cancel",
-                width=120,
-                callback=lambda: dpg.configure_item("api_key_modal", show=False),
+        with dpg.child_window(
+            tag="api_key_modal_content",
+            autosize_x=True,
+            autosize_y=True,
+        ):
+            dpg.add_text("Please paste your Google Gemini API key below.", wrap=0)
+            dpg.add_text(
+                "This key will only be stored for the current session.", wrap=0
             )
+            dpg.add_spacer(height=10)
+
+            dpg.add_input_text(
+                tag="api_key_input", label="API Key", password=True, width=-80
+            )
+            dpg.add_spacer(height=10)
+
+            with dpg.group(horizontal=True):
+                dpg.add_button(
+                    label="Save Key", width=120, callback=save_api_key_callback
+                )
+                dpg.add_button(
+                    label="Cancel",
+                    width=120,
+                    callback=lambda: dpg.configure_item("api_key_modal", show=False),
+                )
 
     with dpg.window(tag="primary_window", label="EasyMTL Translator"):
         with dpg.menu_bar():
@@ -185,22 +219,6 @@ def build_gui():
                 ):
                     dpg.add_group(tag="log_window_content")
 
-    user32 = ctypes.windll.user32
-    screen_width, screen_height = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
-    dpg.create_viewport(
-        title="EasyMTL",
-        width=1000,
-        height=800,
-        small_icon=resource_path("easymtl/assets/icon.ico"),
-        large_icon=resource_path("easymtl/assets/icon.ico"),
-    )
-    dpg.set_viewport_pos(
-        [
-            (screen_width / 2) - (dpg.get_viewport_width() / 2),
-            (screen_height / 2) - (dpg.get_viewport_height() / 2),
-        ]
-    )
-    dpg.bind_font(default_font)
     with dpg.file_dialog(
         directory_selector=False,
         show=False,
@@ -211,6 +229,7 @@ def build_gui():
         modal=True,
     ):
         dpg.add_file_extension(".epub", color=(0, 255, 0, 255))
+
     setup_themes()
     dpg.setup_dearpygui()
     dpg.show_viewport()
