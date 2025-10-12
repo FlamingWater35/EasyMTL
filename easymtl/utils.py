@@ -7,6 +7,11 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
+def format_time(seconds):
+    minutes, sec = divmod(int(seconds), 60)
+    return f"{minutes:02d}:{sec:02d}"
+
+
 def log_message(message, level="INFO"):
     print(f"[{level}] {message}")
 

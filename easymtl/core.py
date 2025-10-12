@@ -5,15 +5,19 @@ from ebooklib import epub, ITEM_DOCUMENT
 import dearpygui.dearpygui as dpg
 
 from .config import CHAPTER_CHUNK_SIZE
-from .utils import log_message
+from .utils import format_time, log_message
 from .epub_handler import extract_content_from_chapters, create_translated_epub
 from .translator import translate_text_with_gemini, parse_translated_text
 
 
 def run_translation_process(epub_path, start_chapter, end_chapter):
+    start_time = time.time()
     try:
         if dpg.is_dearpygui_running():
             dpg.set_value("progress_bar", 0.0)
+            dpg.set_value("elapsed_time_text", "Elapsed: 00:00")
+            dpg.set_value("eta_time_text", "ETA: --:--")
+
         log_message("--- Starting Translation Process ---")
         book = epub.read_epub(epub_path)
         all_chapters = list(book.get_items_of_type(ITEM_DOCUMENT))
@@ -112,12 +116,23 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
                 )
                 chapters_processed += len(chunk_items)
 
-            progress = (
-                chapters_processed / total_chapters_to_process
-                if total_chapters_to_process > 0
-                else 0
-            )
             if dpg.is_dearpygui_running():
+                elapsed_seconds = time.time() - start_time
+                dpg.set_value(
+                    "elapsed_time_text", f"Elapsed: {format_time(elapsed_seconds)}"
+                )
+
+                if chapters_processed > 0:
+                    time_per_chapter = elapsed_seconds / chapters_processed
+                    remaining_chapters = total_chapters_to_process - chapters_processed
+                    eta_seconds = time_per_chapter * remaining_chapters
+                    dpg.set_value("eta_time_text", f"ETA: {format_time(eta_seconds)}")
+
+                progress = (
+                    chapters_processed / total_chapters_to_process
+                    if total_chapters_to_process > 0
+                    else 0
+                )
                 dpg.set_value("progress_bar", progress)
 
             time.sleep(1)
@@ -142,12 +157,21 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
     finally:
         log_message("--- Process Finished ---")
         if dpg.is_dearpygui_running():
+            if (
+                chapters_processed == total_chapters_to_process
+                and total_chapters_to_process > 0
+            ):
+                dpg.set_value("progress_bar", 1.0)
+            dpg.set_value("eta_time_text", "ETA: --:--")
             dpg.configure_item("start_button", enabled=True)
 
 
 def start_translation_thread():
     if not os.getenv("GEMINI_API_KEY"):
-        log_message("ERROR: Gemini API Key is not set. Please set it via the Settings menu.", level="ERROR")
+        log_message(
+            "ERROR: Gemini API Key is not set. Please set it via the Settings menu.",
+            level="ERROR",
+        )
         dpg.show_item("api_key_modal")
         return
 

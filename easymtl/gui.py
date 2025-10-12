@@ -163,7 +163,10 @@ def build_gui():
             )
             dpg.add_spacer(height=15)
             dpg.add_text("Progress:")
-            dpg.add_progress_bar(tag="progress_bar", default_value=0.0, width=-1)
+            with dpg.group(horizontal=True):
+                dpg.add_progress_bar(tag="progress_bar", default_value=0.0)
+                dpg.add_text("Elapsed: 00:00", tag="elapsed_time_text")
+                dpg.add_text("ETA: --:--", tag="eta_time_text")
             dpg.add_spacer(height=5)
 
             with dpg.collapsing_header(label="Logs"):
