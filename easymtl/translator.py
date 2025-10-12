@@ -1,10 +1,14 @@
+import os
 import re
 import google.generativeai as genai
-from .config import GEMINI_API_KEY
 
 
 def translate_text_with_gemini(text, logger, is_retry=False):
-    genai.configure(api_key=GEMINI_API_KEY)
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        logger("Gemini API Key is not set. Please set it via the Settings menu.", level="ERROR")
+        return {'status': 'FAILED', 'text': None}
+    genai.configure(api_key=api_key)
 
     prompt = f"""Translate the following novel chapters into English.
 It is critical that you preserve the `[CHAPTER_ID::...]` tag at the beginning of each chapter. Do not translate it or remove it.

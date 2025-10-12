@@ -52,7 +52,7 @@ def select_file_callback(sender, app_data):
         book = epub.read_epub(filepath)
         chapters = list(book.get_items_of_type(ITEM_DOCUMENT))
         total_chapters = len(chapters)
-        
+
         dpg.set_value("app_state_total_chapters", total_chapters)
         dpg.set_value("chapter_info_text", f"This book has {total_chapters} chapters.")
         dpg.configure_item(
@@ -75,12 +75,54 @@ def select_file_callback(sender, app_data):
         dpg.configure_item("end_chapter_input", enabled=False)
 
 
+def save_api_key_callback():
+    api_key = dpg.get_value("api_key_input")
+    if api_key:
+        os.environ["GEMINI_API_KEY"] = api_key
+        log_message("API Key has been set for this session.", level="SUCCESS")
+        dpg.configure_item("api_key_modal", show=False)
+    else:
+        log_message("API Key field cannot be empty.", level="WARNING")
+
+
 def build_gui():
     dpg.create_context()
     with dpg.font_registry():
         default_font = dpg.add_font(resource_path("easymtl/assets/font.otf"), 22)
 
+    with dpg.window(
+        label="API Key Setup",
+        modal=True,
+        show=False,
+        tag="api_key_modal",
+        no_close=True,
+        width=450,
+    ):
+        dpg.add_text("Please paste your Google Gemini API key below.")
+        dpg.add_text("This key will only be stored for the current session.", wrap=440)
+        dpg.add_spacer(height=10)
+
+        dpg.add_input_text(
+            tag="api_key_input", label="API Key", password=True, width=-1
+        )
+        dpg.add_spacer(height=10)
+
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Save Key", width=120, callback=save_api_key_callback)
+            dpg.add_button(
+                label="Cancel",
+                width=120,
+                callback=lambda: dpg.configure_item("api_key_modal", show=False),
+            )
+
     with dpg.window(tag="primary_window", label="EasyMTL Translator"):
+        with dpg.menu_bar():
+            with dpg.menu(label="Settings"):
+                dpg.add_menu_item(
+                    label="Set API Key",
+                    callback=lambda: dpg.configure_item("api_key_modal", show=True),
+                )
+
         with dpg.child_window(tag="main_window"):
             dpg.add_text("", tag="app_state_filepath", show=False)
             dpg.add_input_int(

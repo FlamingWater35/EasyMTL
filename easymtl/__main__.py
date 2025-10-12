@@ -1,13 +1,12 @@
-import sys
-from .config import GEMINI_API_KEY
+import os
 from .gui import build_gui
-from .utils import log_message
 
 
 def run_app():
-    if not GEMINI_API_KEY or "YOUR_GEMINI_API_KEY" in GEMINI_API_KEY:
-        log_message("Gemini API key is not set. Please edit easymtl/config.py", level="ERROR")
-        sys.exit(1)
+    if not os.getenv("GEMINI_API_KEY"):
+        print(
+            "INFO: Gemini API Key not found in environment. Please set it using the Settings menu in the app."
+        )
 
     build_gui()
 

@@ -1,3 +1,4 @@
+import os
 import threading
 import time
 from ebooklib import epub, ITEM_DOCUMENT
@@ -145,6 +146,11 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
 
 
 def start_translation_thread():
+    if not os.getenv("GEMINI_API_KEY"):
+        log_message("ERROR: Gemini API Key is not set. Please set it via the Settings menu.", level="ERROR")
+        dpg.show_item("api_key_modal")
+        return
+
     epub_path = dpg.get_value("app_state_filepath")
     total_chapters = dpg.get_value("app_state_total_chapters")
     start_chapter = dpg.get_value("start_chapter_input")
