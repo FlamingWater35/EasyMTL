@@ -41,9 +41,9 @@ def setup_themes():
         with dpg.theme_component(dpg.mvProgressBar):
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 4, 4)
             dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 2, 2)
-            dpg.add_theme_color(dpg.mvThemeCol_Border, (183, 28, 28))
-            dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (40, 53, 147))
-            dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, (27, 94, 32))
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (57, 169, 92))
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (93, 64, 55))
+            dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, (57, 169, 92))
         with dpg.theme_component(dpg.mvInputInt):
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 2.5)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (191, 54, 12))
@@ -86,6 +86,7 @@ def select_file_callback(sender, app_data):
         dpg.set_value("chapter_info_text", "Could not read this EPUB file.")
         dpg.configure_item("start_chapter_input", enabled=False)
         dpg.configure_item("end_chapter_input", enabled=False)
+        dpg.configure_item("start_button", enabled=False)
 
 
 def save_api_key_callback():
@@ -211,7 +212,9 @@ def build_gui():
             dpg.add_spacer(height=15)
             dpg.add_text("Progress:")
             with dpg.group(horizontal=True):
-                dpg.add_progress_bar(tag="progress_bar", default_value=0.0, width=-170)
+                dpg.add_progress_bar(
+                    tag="progress_bar", default_value=0.0, width=-170, height=35
+                )
                 with dpg.group():
                     dpg.add_text("Elapsed: 00:00", tag="elapsed_time_text")
                     dpg.add_text("ETA: --:--", tag="eta_time_text")
