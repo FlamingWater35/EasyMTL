@@ -1,5 +1,5 @@
 import os
-from ebooklib import epub
+from ebooklib import epub, ITEM_DOCUMENT, ITEM_COVER, ITEM_STYLE
 from bs4 import BeautifulSoup
 
 
@@ -103,3 +103,103 @@ def create_translated_epub(
         logger(f"Translated e-book saved as: {new_file_path}", level="SUCCESS")
     except Exception as e:
         logger(f"Could not write translated EPUB file: {e}", level="ERROR")
+
+
+def create_cover_page_from_metadata(epub_path, logger):
+    try:
+        logger("Starting cover page creation process...")
+        book = epub.read_epub(epub_path)
+        cover_image_item = None
+
+        logger("Step 1: Checking for dedicated ITEM_COVER type...")
+        cover_items = list(book.get_items_of_type(ITEM_COVER))
+        if cover_items:
+            cover_image_item = cover_items[0]
+            logger(
+                f"Found cover via ITEM_COVER type: {cover_image_item.get_name()}",
+                level="SUCCESS",
+            )
+
+        if not cover_image_item:
+            logger("Step 2: Checking for 'cover' in metadata...")
+            cover_id_meta = book.get_metadata("OPF", "cover")
+            if cover_id_meta:
+                content_id = cover_id_meta[0][1].get("content")
+                if content_id:
+                    cover_image_item = book.get_item_with_id(content_id)
+                    if cover_image_item:
+                        logger(
+                            f"Found cover via metadata ID: {cover_image_item.get_name()}",
+                            level="SUCCESS",
+                        )
+
+        if not cover_image_item:
+            logger(
+                "No official cover found in metadata or item types. Aborting.",
+                level="ERROR",
+            )
+            return
+
+        logger("Creating and adding a new stylesheet for the cover...")
+        stylesheet_content = """
+.cover-page {
+    text-align: center; margin: 0; padding: 0; height: 100vh;
+    display: flex; justify-content: center; align-items: center;
+}
+.cover-page img {
+    max-width: 100%; max-height: 100%; object-fit: contain;
+}
+"""
+        stylesheet = epub.EpubItem(
+            uid="style_cover",
+            file_name="style/cover.css",
+            media_type="text/css",
+            content=stylesheet_content.encode("utf-8"),
+        )
+        book.add_item(stylesheet)
+
+        logger("Creating new cover.xhtml page...")
+
+        css_path = os.path.relpath(stylesheet.get_name(), ".").replace("\\", "/")
+        image_path = os.path.relpath(cover_image_item.get_name(), ".").replace(
+            "\\", "/"
+        )
+
+        cover_page = epub.EpubHtml(title="Cover", file_name="cover.xhtml", lang="en")
+        cover_page.content = f"""<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Cover</title>
+    <link rel="stylesheet" type="text/css" href="{css_path}" />
+</head>
+<body>
+    <div class="cover-page">
+        <img src="{image_path}" alt="Cover Image" />
+    </div>
+</body>
+</html>""".encode(
+            "utf-8"
+        )
+
+        book.add_item(cover_page)
+        cover_page.add_item(stylesheet)
+
+        logger(
+            "Replacing original first page with the new cover page in the book's reading order."
+        )
+        if book.spine:
+            book.spine[0] = cover_page
+        else:
+            book.spine.append(cover_page)
+
+        dir_name, file_name = os.path.split(epub_path)
+        new_file_name = os.path.splitext(file_name)[0] + "_cover.epub"
+        new_file_path = os.path.join(dir_name, new_file_name)
+
+        epub.write_epub(new_file_path, book, {})
+        logger(
+            f"Successfully created new EPUB with formatted cover page: {new_file_path}",
+            level="SUCCESS",
+        )
+
+    except Exception as e:
+        logger(f"An error occurred during cover creation: {e}", level="ERROR")

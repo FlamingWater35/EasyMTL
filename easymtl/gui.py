@@ -6,7 +6,7 @@ from win32 import win32gui
 from ebooklib import epub, ITEM_DOCUMENT
 
 from .utils import resource_path, log_message
-from .core import start_translation_thread
+from .core import start_cover_creation_thread, start_translation_thread
 
 
 def setup_window():
@@ -99,6 +99,12 @@ def save_api_key_callback():
         log_message("API Key field cannot be empty.", level="WARNING")
 
 
+def select_cover_tool_file_callback(sender, app_data):
+    filepath = app_data.get("file_path_name")
+    if filepath:
+        start_cover_creation_thread(filepath)
+
+
 def build_gui():
     dpg.create_context()
 
@@ -159,12 +165,51 @@ def build_gui():
                     callback=lambda: dpg.configure_item("api_key_modal", show=False),
                 )
 
+    with dpg.window(
+        label="Cover Page Tool",
+        modal=True,
+        show=False,
+        tag="cover_tool_modal",
+        width=450,
+        height=200,
+    ):
+        dpg.add_text(
+            "This tool will create a copy of an EPUB file and replace its first page with a proper, centered cover image.",
+            wrap=440,
+        )
+        dpg.add_spacer(height=10)
+        dpg.add_text("It finds the cover image from the book's metadata.", wrap=440)
+        dpg.add_spacer(height=20)
+        with dpg.group(horizontal=True):
+            dpg.add_button(
+                label="Select EPUB File",
+                tag="cover_tool_button",
+                width=-1,
+                callback=lambda: dpg.show_item("cover_tool_file_dialog"),
+            )
+
+    with dpg.file_dialog(
+        directory_selector=False,
+        show=False,
+        callback=select_cover_tool_file_callback,
+        tag="cover_tool_file_dialog",
+        width=700,
+        height=400,
+        modal=True,
+    ):
+        dpg.add_file_extension(".epub", color=(0, 255, 0, 255))
+
     with dpg.window(tag="primary_window", label="EasyMTL Translator"):
         with dpg.menu_bar():
             with dpg.menu(label="Settings"):
                 dpg.add_menu_item(
                     label="Set API Key",
                     callback=lambda: dpg.configure_item("api_key_modal", show=True),
+                )
+            with dpg.menu(label="Tools"):
+                dpg.add_menu_item(
+                    label="Create Cover Page",
+                    callback=lambda: dpg.configure_item("cover_tool_modal", show=True),
                 )
 
         with dpg.child_window(
@@ -213,7 +258,11 @@ def build_gui():
             dpg.add_text("Progress:")
             with dpg.group(horizontal=True):
                 dpg.add_progress_bar(
-                    tag="progress_bar", default_value=0.0, width=-170, height=35, overlay="0/0 (0%)"
+                    tag="progress_bar",
+                    default_value=0.0,
+                    width=-170,
+                    height=35,
+                    overlay="0/0 (0%)",
                 )
                 with dpg.group():
                     dpg.add_text("Elapsed: 00:00", tag="elapsed_time_text")

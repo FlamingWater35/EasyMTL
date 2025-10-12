@@ -6,7 +6,11 @@ import dearpygui.dearpygui as dpg
 
 from .config import CHAPTER_CHUNK_SIZE
 from .utils import format_time, log_message
-from .epub_handler import extract_content_from_chapters, create_translated_epub
+from .epub_handler import (
+    create_cover_page_from_metadata,
+    extract_content_from_chapters,
+    create_translated_epub,
+)
 from .translator import translate_text_with_gemini, parse_translated_text
 
 
@@ -208,4 +212,30 @@ def start_translation_thread():
     thread = threading.Thread(
         target=run_translation_process, args=(epub_path, start_chapter, end_chapter)
     )
+    thread.start()
+
+
+def run_cover_creation_process(epub_path):
+    try:
+        if dpg.is_dearpygui_running():
+            dpg.configure_item("cover_tool_button", enabled=False)
+            dpg.configure_item("start_button", enabled=False)
+
+        create_cover_page_from_metadata(epub_path, log_message)
+
+    except Exception as e:
+        log_message(
+            f"An unexpected error occurred in the cover creation thread: {e}",
+            level="ERROR",
+        )
+    finally:
+        log_message("--- Cover Process Finished ---")
+        if dpg.is_dearpygui_running():
+            dpg.configure_item("cover_tool_button", enabled=True)
+            if dpg.get_value("app_state_filepath"):
+                dpg.configure_item("start_button", enabled=True)
+
+
+def start_cover_creation_thread(epub_path):
+    thread = threading.Thread(target=run_cover_creation_process, args=(epub_path,))
     thread.start()
