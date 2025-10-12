@@ -53,10 +53,12 @@ def select_file_callback(sender, app_data):
         chapters = list(book.get_items_of_type(ITEM_DOCUMENT))
         dpg.set_value("app_state_total_chapters", len(chapters))
         dpg.set_value("chapter_info_text", f"This book has {len(chapters)} chapters.")
+        dpg.configure_item("chapter_count_input", enabled=True)
         dpg.configure_item("start_button", enabled=True)
     except Exception as e:
         log_message(f"Error reading EPUB: {e}")
         dpg.set_value("chapter_info_text", "Could not read this EPUB file.")
+        dpg.configure_item("chapter_count_input", enabled=False)
         dpg.configure_item("start_button", enabled=False)
 
 
@@ -64,16 +66,6 @@ def build_gui():
     dpg.create_context()
     with dpg.font_registry():
         default_font = dpg.add_font(resource_path("easymtl/assets/font.otf"), 22)
-    with dpg.file_dialog(
-        directory_selector=False,
-        show=False,
-        callback=select_file_callback,
-        tag="file_dialog_id",
-        width=700,
-        height=400,
-        modal=True,
-    ):
-        dpg.add_file_extension(".epub", color=(0, 255, 0, 255))
 
     with dpg.window(tag="primary_window", label="EasyMTL Translator"):
         with dpg.child_window(tag="main_window"):
@@ -88,7 +80,7 @@ def build_gui():
                 )
                 dpg.add_text("No file selected.", tag="epub_path_text")
             dpg.add_text("", tag="chapter_info_text")
-            dpg.add_spacer(height=10)
+            dpg.add_spacer(height=5)
             dpg.add_text("2. Enter Number of Chapters to Translate")
             dpg.add_input_int(
                 label="Chapters",
@@ -96,6 +88,7 @@ def build_gui():
                 default_value=1,
                 min_value=1,
                 width=120,
+                enabled=False,
             )
             dpg.add_spacer(height=10)
             dpg.add_button(
@@ -104,7 +97,11 @@ def build_gui():
                 callback=start_translation_thread,
                 enabled=False,
             )
-            dpg.add_spacer(height=10)
+            dpg.add_spacer(height=15)
+            dpg.add_text("Progress:")
+            dpg.add_progress_bar(tag="progress_bar", default_value=0.0, width=-1)
+            dpg.add_spacer(height=5)
+
             with dpg.collapsing_header(label="Logs"):
                 with dpg.child_window(tag="log_window", height=250, border=True):
                     dpg.add_group(tag="log_window_content")
@@ -113,8 +110,8 @@ def build_gui():
     screen_width, screen_height = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
     dpg.create_viewport(
         title="EasyMTL",
-        width=800,
-        height=600,
+        width=1000,
+        height=800,
         small_icon=resource_path("easymtl/assets/icon.ico"),
         large_icon=resource_path("easymtl/assets/icon.ico"),
     )
@@ -125,6 +122,16 @@ def build_gui():
         ]
     )
     dpg.bind_font(default_font)
+    with dpg.file_dialog(
+        directory_selector=False,
+        show=False,
+        callback=select_file_callback,
+        tag="file_dialog_id",
+        width=dpg.get_viewport_width() / 1.3,
+        height=dpg.get_viewport_height() / 1.5,
+        modal=True,
+    ):
+        dpg.add_file_extension(".epub", color=(0, 255, 0, 255))
     setup_themes()
     dpg.setup_dearpygui()
     dpg.show_viewport()

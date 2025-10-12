@@ -11,6 +11,8 @@ from .translator import translate_text_with_gemini, parse_translated_text
 
 def run_translation_process(epub_path, num_chapters):
     try:
+        if dpg.is_dearpygui_running():
+            dpg.set_value("progress_bar", 0.0)
         log_message("--- Starting Translation Process ---")
         book = epub.read_epub(epub_path)
         all_chapters = list(book.get_items_of_type(ITEM_DOCUMENT))
@@ -46,7 +48,9 @@ def run_translation_process(epub_path, num_chapters):
                 chunk_content, log_message
             )
             if translated_text_chunk:
-                parsed_chapters_chunk = parse_translated_text(translated_text_chunk)
+                parsed_chapters_chunk = parse_translated_text(
+                    translated_text_chunk, log_message
+                )
 
                 if len(parsed_chapters_chunk) != len(chunk_items):
                     log_message(
@@ -63,6 +67,10 @@ def run_translation_process(epub_path, num_chapters):
                 log_message(
                     f"ERROR: Translation failed for chunk {i+1}. This chunk will be skipped."
                 )
+
+            progress = (i + 1) / len(chapter_chunks)
+            if dpg.is_dearpygui_running():
+                dpg.set_value("progress_bar", progress)
 
             time.sleep(1)
 

@@ -32,5 +32,21 @@ Preserve the chapter separation markers ('---') at the end of each chapter's tex
         return None
 
 
-def parse_translated_text(translated_text):
-    return [ch.strip() for ch in translated_text.split("---") if ch.strip()]
+def parse_translated_text(translated_text, logger):
+    parsed_chapters = []
+    raw_chunks = translated_text.split("---")
+
+    for chunk in raw_chunks:
+        clean_chunk = chunk.strip()
+
+        if not clean_chunk:
+            continue
+
+        if len(clean_chunk) < 100:
+            logger(
+                f"Ignoring short translated chunk (length: {len(clean_chunk)}). Content: '{clean_chunk[:60]}...'"
+            )
+        else:
+            parsed_chapters.append(clean_chunk)
+
+    return parsed_chapters
