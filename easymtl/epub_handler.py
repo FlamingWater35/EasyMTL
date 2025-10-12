@@ -1,5 +1,5 @@
 import os
-from ebooklib import epub, ITEM_DOCUMENT, ITEM_COVER, ITEM_STYLE
+from ebooklib import epub, ITEM_COVER
 from bs4 import BeautifulSoup
 
 
