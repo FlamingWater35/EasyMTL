@@ -5,9 +5,12 @@ import pywinstyles
 from win32 import win32gui
 from ebooklib import epub, ITEM_DOCUMENT
 
-from .utils import resource_path, log_message
+from easymtl.config import AVAILABLE_GEMMA_MODELS
+
+from .utils import resource_path, log_message, scan_for_local_models
 from .core import (
     start_cover_creation_thread,
+    start_download_thread,
     start_model_fetch_thread,
     start_translation_thread,
 )
@@ -123,6 +126,32 @@ def save_model_callback():
     os.environ["GEMINI_MODEL_NAME"] = selected_model
     log_message(f"Model for this session set to: {selected_model}", level="SUCCESS")
     dpg.configure_item("model_select_modal", show=False)
+
+
+def open_local_models_callback():
+    dpg.configure_item(
+        "gemma_model_to_download_combo", items=list(AVAILABLE_GEMMA_MODELS.keys())
+    )
+    local_models = scan_for_local_models()
+    dpg.configure_item("local_model_listbox", items=local_models)
+    dpg.configure_item("local_models_modal", show=True)
+
+
+def download_selected_model_callback():
+    selected_model_name = dpg.get_value("gemma_model_to_download_combo")
+    if selected_model_name:
+        model_info = AVAILABLE_GEMMA_MODELS[selected_model_name]
+        start_download_thread(model_info["repo"], model_info["file"])
+
+
+def select_local_model_callback():
+    selected_model = dpg.get_value("local_model_listbox")
+    if selected_model:
+        os.environ["GEMINI_MODEL_NAME"] = selected_model
+        log_message(
+            f"Local model for this session set to: {selected_model}", level="SUCCESS"
+        )
+        dpg.configure_item("local_models_modal", show=False)
 
 
 def build_gui():
@@ -254,12 +283,47 @@ def build_gui():
             dpg.add_spacer(height=20)
 
             with dpg.group(horizontal=True):
-                dpg.add_button(label="Set Model", width=120, callback=save_model_callback)
+                dpg.add_button(
+                    label="Set Model", width=120, callback=save_model_callback
+                )
                 dpg.add_button(
                     label="Cancel",
                     width=120,
-                    callback=lambda: dpg.configure_item("model_select_modal", show=False),
+                    callback=lambda: dpg.configure_item(
+                        "model_select_modal", show=False
+                    ),
                 )
+
+    with dpg.window(
+        label="Local Model Manager",
+        modal=True,
+        show=False,
+        tag="local_models_modal",
+        width=600,
+        height=400,
+    ):
+        dpg.add_text("Download and select local Gemma models (GGUF).")
+        dpg.add_text(
+            "Models are saved to your user data directory.", color=(200, 200, 200)
+        )
+        dpg.add_separator()
+
+        dpg.add_text("Download New Model")
+        with dpg.group(horizontal=True):
+            dpg.add_combo(tag="gemma_model_to_download_combo", items=[], width=-150)
+            dpg.add_button(
+                label="Download",
+                tag="download_button",
+                callback=download_selected_model_callback,
+            )
+        dpg.add_progress_bar(
+            tag="download_progress_bar", default_value=0.0, overlay="Download progress"
+        )
+        dpg.add_separator()
+
+        dpg.add_text("Select Active Local Model")
+        dpg.add_listbox(tag="local_model_listbox", items=[], num_items=5)
+        dpg.add_button(label="Use Selected Model", callback=select_local_model_callback)
 
     with dpg.window(tag="primary_window", label="EasyMTL Translator"):
         with dpg.menu_bar():
@@ -275,6 +339,10 @@ def build_gui():
                 dpg.add_menu_item(
                     label="Create Cover Page",
                     callback=lambda: dpg.configure_item("cover_tool_modal", show=True),
+                )
+            with dpg.menu(label="Local Models"):
+                dpg.add_menu_item(
+                    label="Manage Models", callback=open_local_models_callback
                 )
 
         with dpg.child_window(

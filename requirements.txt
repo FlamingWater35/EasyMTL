@@ -5,3 +5,7 @@ dearpygui
 pywin32
 pywinstyles
 black
+llama-cpp-python
+huggingface-hub
+appdirs
+tqdm

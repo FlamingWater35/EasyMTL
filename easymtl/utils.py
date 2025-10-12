@@ -1,5 +1,26 @@
 import os
 import dearpygui.dearpygui as dpg
+from platformdirs import user_data_dir
+
+
+APP_NAME = "EasyMTL"
+APP_AUTHOR = "FlamingWater"
+MODELS_DIR = os.path.join(user_data_dir(APP_NAME, APP_AUTHOR), "models")
+
+
+def get_models_dir():
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    return MODELS_DIR
+
+
+def scan_for_local_models():
+    models_dir = get_models_dir()
+    found_models = []
+    if os.path.exists(models_dir):
+        for file in os.listdir(models_dir):
+            if file.endswith(".gguf"):
+                found_models.append(file)
+    return found_models
 
 
 def resource_path(relative_path):
