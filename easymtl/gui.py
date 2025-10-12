@@ -60,6 +60,7 @@ def setup_themes():
     dpg.bind_item_theme("main_window", window_theme)
     dpg.bind_item_theme("api_key_modal_content", window_theme)
     dpg.bind_item_theme("cover_tool_modal_content", window_theme)
+    dpg.bind_item_theme("model_select_modal_content", window_theme)
 
 
 def select_file_callback(sender, app_data):
@@ -233,23 +234,32 @@ def build_gui():
         show=False,
         tag="model_select_modal",
         no_close=True,
-        width=450,
-        height=200,
+        width=api_modal_width,
+        height=api_modal_height * 1.2,
+        pos=[
+            (dpg.get_viewport_width() / 2) - (api_modal_width / 2),
+            (dpg.get_viewport_height() / 2) - (api_modal_height / 2),
+        ],
     ):
-        dpg.add_text("Select the Gemini model to use for translation.", wrap=440)
-        dpg.add_text("This setting will only apply to the current session.", wrap=440)
-        dpg.add_spacer(height=10)
+        with dpg.child_window(
+            tag="model_select_modal_content",
+            autosize_x=True,
+            autosize_y=True,
+        ):
+            dpg.add_text("Select the Gemini model to use for translation.", wrap=0)
+            dpg.add_text("This setting will only apply to the current session.", wrap=0)
+            dpg.add_spacer(height=10)
 
-        dpg.add_combo(tag="model_combo", label="Model", items=[], width=-1)
-        dpg.add_spacer(height=20)
+            dpg.add_combo(tag="model_combo", label="Model", items=[], width=-60)
+            dpg.add_spacer(height=20)
 
-        with dpg.group(horizontal=True):
-            dpg.add_button(label="Set Model", width=120, callback=save_model_callback)
-            dpg.add_button(
-                label="Cancel",
-                width=120,
-                callback=lambda: dpg.configure_item("model_select_modal", show=False),
-            )
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="Set Model", width=120, callback=save_model_callback)
+                dpg.add_button(
+                    label="Cancel",
+                    width=120,
+                    callback=lambda: dpg.configure_item("model_select_modal", show=False),
+                )
 
     with dpg.window(tag="primary_window", label="EasyMTL Translator"):
         with dpg.menu_bar():
