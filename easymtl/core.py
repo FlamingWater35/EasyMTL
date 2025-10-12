@@ -9,14 +9,14 @@ from .epub_handler import extract_content_from_chapters, create_translated_epub
 from .translator import translate_text_with_gemini, parse_translated_text
 
 
-def run_translation_process(epub_path, num_chapters):
+def run_translation_process(epub_path, start_chapter, end_chapter):
     try:
         if dpg.is_dearpygui_running():
             dpg.set_value("progress_bar", 0.0)
         log_message("--- Starting Translation Process ---")
         book = epub.read_epub(epub_path)
         all_chapters = list(book.get_items_of_type(ITEM_DOCUMENT))
-        chapters_to_translate_items = all_chapters[:num_chapters]
+        chapters_to_translate_items = all_chapters[start_chapter - 1 : end_chapter]
         log_message(
             f"Selected {len(chapters_to_translate_items)} of {len(all_chapters)} chapters."
         )
@@ -100,7 +100,10 @@ def run_translation_process(epub_path, num_chapters):
                     translation_map[original_item.get_name()] = translated_text
                 all_extraction_data.extend(chunk_extraction_data)
             else:
-                log_message(f"Translation failed for chunk {i+1} after all retries. Skipping.", level="ERROR")
+                log_message(
+                    f"Translation failed for chunk {i+1} after all retries. Skipping.",
+                    level="ERROR",
+                )
 
             progress = (i + 1) / len(chapter_chunks)
             if dpg.is_dearpygui_running():
@@ -122,10 +125,16 @@ def run_translation_process(epub_path, num_chapters):
                 log_message,
             )
         else:
-            log_message("Translation failed for all chunks. No EPUB file will be created.", level="ERROR")
+            log_message(
+                "Translation failed for all chunks. No EPUB file will be created.",
+                level="ERROR",
+            )
 
     except Exception as e:
-        log_message(f"An unexpected error occurred in the translation thread: {e}", level="ERROR")
+        log_message(
+            f"An unexpected error occurred in the translation thread: {e}",
+            level="ERROR",
+        )
     finally:
         log_message("--- Process Finished ---")
         if dpg.is_dearpygui_running():
@@ -135,12 +144,16 @@ def run_translation_process(epub_path, num_chapters):
 def start_translation_thread():
     epub_path = dpg.get_value("app_state_filepath")
     total_chapters = dpg.get_value("app_state_total_chapters")
-    chapters_to_translate = dpg.get_value("chapter_count_input")
-    if not (1 <= chapters_to_translate <= total_chapters):
-        log_message(f"Chapter count must be between 1 and {total_chapters}.", level="ERROR")
+    start_chapter = dpg.get_value("start_chapter_input")
+    end_chapter = dpg.get_value("end_chapter_input")
+    if start_chapter > end_chapter:
+        log_message("Start chapter cannot be greater than the end chapter.", level="ERROR")
+        return
+    if not (1 <= start_chapter <= total_chapters and 1 <= end_chapter <= total_chapters):
+        log_message(f"Chapter range must be between 1 and {total_chapters}.", level="ERROR")
         return
     dpg.configure_item("start_button", enabled=False)
     thread = threading.Thread(
-        target=run_translation_process, args=(epub_path, chapters_to_translate)
+        target=run_translation_process, args=(epub_path, start_chapter, end_chapter)
     )
     thread.start()

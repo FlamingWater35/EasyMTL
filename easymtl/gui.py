@@ -51,15 +51,28 @@ def select_file_callback(sender, app_data):
     try:
         book = epub.read_epub(filepath)
         chapters = list(book.get_items_of_type(ITEM_DOCUMENT))
-        dpg.set_value("app_state_total_chapters", len(chapters))
-        dpg.set_value("chapter_info_text", f"This book has {len(chapters)} chapters.")
-        dpg.configure_item("chapter_count_input", enabled=True)
+        total_chapters = len(chapters)
+        
+        dpg.set_value("app_state_total_chapters", total_chapters)
+        dpg.set_value("chapter_info_text", f"This book has {total_chapters} chapters.")
+        dpg.configure_item(
+            "start_chapter_input",
+            enabled=True,
+            max_value=total_chapters,
+            default_value=1,
+        )
+        dpg.configure_item(
+            "end_chapter_input",
+            enabled=True,
+            max_value=total_chapters,
+            default_value=total_chapters,
+        )
         dpg.configure_item("start_button", enabled=True)
     except Exception as e:
         log_message(f"Error reading EPUB: {e}", level="ERROR")
         dpg.set_value("chapter_info_text", "Could not read this EPUB file.")
-        dpg.configure_item("chapter_count_input", enabled=False)
-        dpg.configure_item("start_button", enabled=False)
+        dpg.configure_item("start_chapter_input", enabled=False)
+        dpg.configure_item("end_chapter_input", enabled=False)
 
 
 def build_gui():
@@ -81,15 +94,24 @@ def build_gui():
                 dpg.add_text("No file selected.", tag="epub_path_text")
             dpg.add_text("", tag="chapter_info_text")
             dpg.add_spacer(height=5)
-            dpg.add_text("2. Enter Number of Chapters to Translate")
-            dpg.add_input_int(
-                label="Chapters",
-                tag="chapter_count_input",
-                default_value=1,
-                min_value=1,
-                width=120,
-                enabled=False,
-            )
+            dpg.add_text("2. Select Chapter Range to Translate")
+            with dpg.group(horizontal=True):
+                dpg.add_input_int(
+                    label="Start Chapter",
+                    tag="start_chapter_input",
+                    default_value=1,
+                    min_value=1,
+                    width=150,
+                    enabled=False,
+                )
+                dpg.add_input_int(
+                    label="End Chapter",
+                    tag="end_chapter_input",
+                    default_value=1,
+                    min_value=1,
+                    width=150,
+                    enabled=False,
+                )
             dpg.add_spacer(height=10)
             dpg.add_button(
                 label="Start Translation",
