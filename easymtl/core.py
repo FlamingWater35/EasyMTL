@@ -24,6 +24,7 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
     start_time = time.time()
     chapters_processed = 0
     total_chapters_to_process = 0
+    process_halted = False
     try:
         if dpg.is_dearpygui_running():
             dpg.set_value("progress_bar", 0.0)
@@ -46,7 +47,7 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
 
         log_message("Pre-processing chapters to count tokens...")
         chapter_data_list = []
-        for item in chapters_to_translate_items:
+        for i, item in enumerate(chapters_to_translate_items):
             item_content, item_extraction_data = extract_content_from_chapters(
                 [item], log_message, verbose=False
             )
@@ -60,6 +61,13 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
                     "extraction_data": item_extraction_data[0],
                 }
             )
+        if dpg.is_dearpygui_running():
+            progress = (i + 1) / (total_chapters_to_process * 2)
+            percent = int(progress * 100)
+            overlay_text = f"Analyzing... ({percent}%)"
+            dpg.set_value("progress_bar", progress)
+            dpg.configure_item("progress_bar", overlay=overlay_text)
+
         log_message("Pre-processing complete.", level="SUCCESS")
 
         log_message(
@@ -94,7 +102,6 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
             chunk_data = chunks.pop(0)
             chunk_items = [data["item"] for data in chunk_data]
             chunk_content = "".join([data["content"] for data in chunk_data])
-            chunk_extraction_data = [data["extraction_data"] for data in chunk_data]
 
             log_message(f"--- Processing Chunk (Size: {len(chunk_items)} chapters) ---")
 
@@ -119,7 +126,10 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
 
             if chunk_translation_map:
                 translation_map.update(chunk_translation_map)
-                all_extraction_data.extend(chunk_extraction_data)
+                translated_ids = set(chunk_translation_map.keys())
+                for data in chunk_data:
+                    if data["item"].get_name() in translated_ids:
+                        all_extraction_data.append(data["extraction_data"])
                 chapters_processed += len(chunk_translation_map)
 
                 if response_status == "OUTPUT_TRUNCATED":
@@ -146,6 +156,7 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
                 log_message(
                     "Halting translation due to input token limit.", level="ERROR"
                 )
+                process_halted = True
                 break
             else:
                 log_message(
@@ -200,16 +211,22 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
     finally:
         log_message("--- Process Finished ---")
         if dpg.is_dearpygui_running():
-            final_progress = (
-                chapters_processed / total_chapters_to_process
-                if total_chapters_to_process > 0
-                else 0
-            )
-            final_percent = int(final_progress * 100)
-            final_overlay = (
-                f"{chapters_processed}/{total_chapters_to_process} ({final_percent}%)"
-            )
+            if not process_halted and total_chapters_to_process > 0:
+                final_progress = 1.0
+                final_chapters = total_chapters_to_process
+                final_percent = 100
+            else:
+                final_progress = (
+                    chapters_processed / total_chapters_to_process
+                    if total_chapters_to_process > 0
+                    else 0
+                )
+                final_chapters = chapters_processed
+                final_percent = int(final_progress * 100)
 
+            final_overlay = (
+                f"{final_chapters}/{total_chapters_to_process} ({final_percent}%)"
+            )
             dpg.set_value("progress_bar", final_progress)
             dpg.configure_item("progress_bar", overlay=final_overlay)
             dpg.set_value("eta_time_text", "ETA: --:--")
