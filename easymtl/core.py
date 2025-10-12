@@ -12,9 +12,12 @@ from .translator import translate_text_with_gemini, parse_translated_text
 
 def run_translation_process(epub_path, start_chapter, end_chapter):
     start_time = time.time()
+    chapters_processed = 0
+    total_chapters_to_process = 0
     try:
         if dpg.is_dearpygui_running():
             dpg.set_value("progress_bar", 0.0)
+            dpg.configure_item("progress_bar", overlay="0/0 (0%)")
             dpg.set_value("elapsed_time_text", "Elapsed: 00:00")
             dpg.set_value("eta_time_text", "ETA: --:--")
 
@@ -22,6 +25,7 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
         book = epub.read_epub(epub_path)
         all_chapters = list(book.get_items_of_type(ITEM_DOCUMENT))
         chapters_to_translate_items = all_chapters[start_chapter - 1 : end_chapter]
+        total_chapters_to_process = len(chapters_to_translate_items)
         log_message(
             f"Selected chapters {start_chapter} to {end_chapter} ({len(chapters_to_translate_items)} total)."
         )
@@ -36,9 +40,6 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
 
         translation_map = {}
         all_extraction_data = []
-
-        total_chapters_to_process = len(chapters_to_translate_items)
-        chapters_processed = 0
 
         while chunks:
             chunk_items = chunks.pop(0)
@@ -122,18 +123,23 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
                     "elapsed_time_text", f"Elapsed: {format_time(elapsed_seconds)}"
                 )
 
-                if chapters_processed > 0:
-                    time_per_chapter = elapsed_seconds / chapters_processed
-                    remaining_chapters = total_chapters_to_process - chapters_processed
-                    eta_seconds = time_per_chapter * remaining_chapters
-                    dpg.set_value("eta_time_text", f"ETA: {format_time(eta_seconds)}")
-
                 progress = (
                     chapters_processed / total_chapters_to_process
                     if total_chapters_to_process > 0
                     else 0
                 )
+                percent = int(progress * 100)
+                overlay_text = (
+                    f"{chapters_processed}/{total_chapters_to_process} ({percent}%)"
+                )
                 dpg.set_value("progress_bar", progress)
+                dpg.configure_item("progress_bar", overlay=overlay_text)
+
+                if chapters_processed > 0 and progress < 1.0:
+                    time_per_chapter = elapsed_seconds / chapters_processed
+                    remaining_chapters = total_chapters_to_process - chapters_processed
+                    eta_seconds = time_per_chapter * remaining_chapters
+                    dpg.set_value("eta_time_text", f"ETA: {format_time(eta_seconds)}")
 
             time.sleep(1)
 
@@ -157,11 +163,18 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
     finally:
         log_message("--- Process Finished ---")
         if dpg.is_dearpygui_running():
-            if (
-                chapters_processed == total_chapters_to_process
-                and total_chapters_to_process > 0
-            ):
-                dpg.set_value("progress_bar", 1.0)
+            final_progress = (
+                chapters_processed / total_chapters_to_process
+                if total_chapters_to_process > 0
+                else 0
+            )
+            final_percent = int(final_progress * 100)
+            final_overlay = (
+                f"{chapters_processed}/{total_chapters_to_process} ({final_percent}%)"
+            )
+
+            dpg.set_value("progress_bar", final_progress)
+            dpg.configure_item("progress_bar", overlay=final_overlay)
             dpg.set_value("eta_time_text", "ETA: --:--")
             dpg.configure_item("start_button", enabled=True)
 

@@ -213,7 +213,7 @@ def build_gui():
             dpg.add_text("Progress:")
             with dpg.group(horizontal=True):
                 dpg.add_progress_bar(
-                    tag="progress_bar", default_value=0.0, width=-170, height=35
+                    tag="progress_bar", default_value=0.0, width=-170, height=35, overlay="0/0 (0%)"
                 )
                 with dpg.group():
                     dpg.add_text("Elapsed: 00:00", tag="elapsed_time_text")
