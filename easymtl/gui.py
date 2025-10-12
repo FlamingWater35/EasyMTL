@@ -335,7 +335,7 @@ def build_gui():
                     dpg.add_spacer(height=5)
             dpg.add_spacer(height=5)
 
-            with dpg.collapsing_header(label="Logs"):
+            with dpg.collapsing_header(label="Logs", default_open=True):
                 with dpg.child_window(
                     tag="log_window",
                     height=250,
