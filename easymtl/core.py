@@ -4,7 +4,7 @@ import time
 from ebooklib import epub, ITEM_DOCUMENT
 import dearpygui.dearpygui as dpg
 
-from .config import DEFAULT_MODEL, TOKEN_CHUNK_LIMIT
+from .config import DEFAULT_MODEL, TOKEN_SAFETY_MARGIN
 from .utils import format_time, log_message
 from .epub_handler import (
     create_cover_page_from_metadata,
@@ -13,6 +13,7 @@ from .epub_handler import (
 )
 from .translator import (
     count_tokens,
+    get_model_output_limit,
     list_models,
     translate_text_with_gemini,
     parse_translated_text,
@@ -36,34 +37,50 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
         chapters_to_translate_items = all_chapters[start_chapter - 1 : end_chapter]
         total_chapters_to_process = len(chapters_to_translate_items)
         log_message(
-            f"Selected chapters {start_chapter} to {end_chapter} ({len(chapters_to_translate_items)} total)."
+            f"Selected chapters {start_chapter} to {end_chapter} ({total_chapters_to_process} total)."
         )
+
+        max_output_tokens = get_model_output_limit(log_message)
+        safe_token_limit = max_output_tokens - TOKEN_SAFETY_MARGIN
+        log_message(f"Using a safe input token limit of {safe_token_limit} per chunk.")
+
+        log_message("Pre-processing chapters to count tokens...")
+        chapter_data_list = []
+        for item in chapters_to_translate_items:
+            item_content, item_extraction_data = extract_content_from_chapters(
+                [item], log_message, verbose=False
+            )
+            item_tokens = count_tokens(item_content)
+
+            chapter_data_list.append(
+                {
+                    "item": item,
+                    "content": item_content,
+                    "tokens": item_tokens,
+                    "extraction_data": item_extraction_data[0],
+                }
+            )
+        log_message("Pre-processing complete.", level="SUCCESS")
 
         log_message(
-            f"Building dynamic chunks with a token limit of {TOKEN_CHUNK_LIMIT}..."
+            f"Building dynamic chunks with a token limit of {safe_token_limit}..."
         )
         chunks = []
-        current_chunk_items = []
+        current_chunk_data = []
         current_chunk_tokens = 0
-
-        for item in chapters_to_translate_items:
-            temp_content, _ = extract_content_from_chapters(
-                [item], log_message
-            )
-            item_tokens = count_tokens(temp_content)
-
-            if current_chunk_items and (
-                current_chunk_tokens + item_tokens > TOKEN_CHUNK_LIMIT
+        for chapter_data in chapter_data_list:
+            if current_chunk_data and (
+                current_chunk_tokens + chapter_data["tokens"] > safe_token_limit
             ):
-                chunks.append(current_chunk_items)
-                current_chunk_items = []
+                chunks.append(current_chunk_data)
+                current_chunk_data = []
                 current_chunk_tokens = 0
 
-            current_chunk_items.append(item)
-            current_chunk_tokens += item_tokens
+            current_chunk_data.append(chapter_data)
+            current_chunk_tokens += chapter_data["tokens"]
 
-        if current_chunk_items:
-            chunks.append(current_chunk_items)
+        if current_chunk_data:
+            chunks.append(current_chunk_data)
 
         log_message(
             f"Dynamically created {len(chunks)} chunks based on token count.",
@@ -74,17 +91,12 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
         all_extraction_data = []
 
         while chunks:
-            chunk_items = chunks.pop(0)
-            log_message(f"--- Processing Chunk (Size: {len(chunk_items)} chapters) ---")
+            chunk_data = chunks.pop(0)
+            chunk_items = [data["item"] for data in chunk_data]
+            chunk_content = "".join([data["content"] for data in chunk_data])
+            chunk_extraction_data = [data["extraction_data"] for data in chunk_data]
 
-            chunk_content, chunk_extraction_data = extract_content_from_chapters(
-                chunk_items, log_message
-            )
-            if not chunk_content:
-                log_message(
-                    f"Failed to extract text from chunk. Skipping.", level="WARNING"
-                )
-                continue
+            log_message(f"--- Processing Chunk (Size: {len(chunk_items)} chapters) ---")
 
             chunk_translation_map = None
             response_status = None
@@ -116,17 +128,19 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
                         level="WARNING",
                     )
                     translated_ids = set(chunk_translation_map.keys())
-                    untranslated_items = [
-                        item
-                        for item in chunk_items
-                        if item.get_name() not in translated_ids
+
+                    untranslated_data = [
+                        data
+                        for data in chunk_data
+                        if data["item"].get_name() not in translated_ids
                     ]
-                    if untranslated_items:
+
+                    if untranslated_data:
                         log_message(
-                            f"Re-queuing a new chunk with {len(untranslated_items)} remaining chapters.",
+                            f"Re-queuing a new chunk with {len(untranslated_data)} remaining chapters.",
                             level="INFO",
                         )
-                        chunks.insert(0, untranslated_items)
+                        chunks.insert(0, untranslated_data)
 
             elif response_status == "TOKEN_LIMIT_EXCEEDED":
                 log_message(

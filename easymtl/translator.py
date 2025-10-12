@@ -27,6 +27,40 @@ def get_client():
 
     return _CLIENT_INSTANCE, None
 
+_MODEL_LIMIT_CACHE = {}
+
+def get_model_output_limit(logger):
+    model_name = os.getenv("GEMINI_MODEL_NAME", DEFAULT_MODEL)
+    
+    if model_name in _MODEL_LIMIT_CACHE:
+        return _MODEL_LIMIT_CACHE[model_name]
+
+    client, error = get_client()
+    if error:
+        logger(f"Cannot get model limit: {error}", level="ERROR")
+        return 8192
+
+    try:
+        full_model_name = f"models/{model_name}" if not model_name.startswith("models/") else model_name
+        
+        logger(f"Fetching details for model: {model_name}...")
+        model_info = client.models.get(model=full_model_name)
+        
+        if hasattr(model_info, 'output_token_limit'):
+            limit = model_info.output_token_limit
+            logger(f"Model '{model_name}' has an output token limit of {limit}.", level="SUCCESS")
+            _MODEL_LIMIT_CACHE[model_name] = limit
+            return limit
+        else:
+            logger(f"Model '{model_name}' did not return an output token limit. Using default.", level="WARNING")
+            _MODEL_LIMIT_CACHE[model_name] = 8192
+            return 8192
+
+    except errors.APIError as e:
+        logger(f"API Error fetching model details: {e.message}. Using default limit.", level="ERROR")
+        _MODEL_LIMIT_CACHE[model_name] = 8192
+        return 8192
+
 
 def list_models(logger):
     client, error = get_client()

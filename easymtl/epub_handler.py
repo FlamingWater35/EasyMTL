@@ -3,8 +3,9 @@ from ebooklib import epub, ITEM_COVER
 from bs4 import BeautifulSoup
 
 
-def extract_content_from_chapters(chapter_items, logger):
-    logger("Extracting content and adding unique chapter identifiers...")
+def extract_content_from_chapters(chapter_items, logger, verbose=True):
+    if verbose:
+        logger("Extracting content and adding unique chapter identifiers...")
     full_content_for_api = ""
     extraction_data = []
 
@@ -27,7 +28,8 @@ def extract_content_from_chapters(chapter_items, logger):
         full_content_for_api += f"{id_tag}\n{chapter_text}\n---\n"
         extraction_data.append((chapter_id, image_tags_for_chapter))
 
-    logger("Content extracted successfully.", level="SUCCESS")
+    if verbose:
+        logger("Content extracted successfully.", level="SUCCESS")
     return full_content_for_api, extraction_data
 
 
