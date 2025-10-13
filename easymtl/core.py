@@ -182,32 +182,51 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
             for data in chunk_data:
                 if data["item"].get_name() in translated_ids:
                     all_extraction_data.append(data["extraction_data"])
-            chapters_processed += len(chunk_translation_map)
-            if response_status == "OUTPUT_TRUNCATED":
-                log_message(
-                    f"Chunk was truncated. Re-queuing missing chapters.",
-                    level="WARNING",
-                )
-                untranslated_data = [
-                    data
-                    for data in chunk_data
-                    if data["item"].get_name() not in translated_ids
-                ]
-                if untranslated_data:
+            chapters_processed += len(translated_ids)
+            untranslated_data = [
+                data
+                for data in chunk_data
+                if data["item"].get_name() not in translated_ids
+            ]
+            if untranslated_data:
+                if response_status == "OUTPUT_TRUNCATED":
                     log_message(
-                        f"Re-queuing a new chunk with {len(untranslated_data)} remaining chapters.",
-                        level="INFO",
+                        "Output truncated by model. Re-queuing missing chapters.",
+                        level="WARNING",
                     )
-                    chunks.insert(0, untranslated_data)
+                else:
+                    log_message(
+                        "Model response was incomplete. Re-queuing missing chapters.",
+                        level="WARNING",
+                    )
+                log_message(
+                    f"Re-queuing a new chunk with {len(untranslated_data)} remaining chapters.",
+                    level="INFO",
+                )
+                chunks.insert(0, untranslated_data)
         elif response_status == "TOKEN_LIMIT_EXCEEDED":
             log_message("Halting translation due to input token limit.", level="ERROR")
             raise InterruptedError("TOKEN_LIMIT_EXCEEDED")
         else:
             log_message(
-                f"Translation failed for this chunk after all retries. Skipping.",
+                f"Translation failed for a chunk of {len(chunk_data)} chapters. Splitting and re-queuing.",
                 level="ERROR",
             )
-            chapters_processed += len(chunk_items)
+            if len(chunk_data) > 1:
+                mid_point = len(chunk_data) // 2
+                first_half = chunk_data[:mid_point]
+                second_half = chunk_data[mid_point:]
+                chunks.insert(0, second_half)
+                chunks.insert(0, first_half)
+                log_message(
+                    f"Split into two new chunks of size {len(first_half)} and {len(second_half)}."
+                )
+            else:
+                log_message(
+                    f"Unable to translate chapter {chunk_data[0]['item'].get_name()} after multiple attempts. Skipping.",
+                    level="ERROR",
+                )
+                chapters_processed += 1
 
         if dpg.is_dearpygui_running():
             progress = (
