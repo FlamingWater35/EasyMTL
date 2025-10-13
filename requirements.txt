@@ -9,3 +9,4 @@ llama-cpp-python
 huggingface-hub
 pyinstaller
 colorama
+requests

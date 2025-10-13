@@ -5,7 +5,8 @@ import pywinstyles
 from win32 import win32gui
 from ebooklib import epub, ITEM_DOCUMENT
 
-from easymtl.config import AVAILABLE_GEMMA_MODELS
+from easymtl.config import APP_VERSION, AVAILABLE_GEMMA_MODELS
+from easymtl.updater import start_download_and_update_thread, start_update_check_thread
 
 from .utils import (
     get_reverse_model_map,
@@ -81,6 +82,7 @@ def setup_themes():
     dpg.bind_item_theme("cover_tool_modal_content", window_theme)
     dpg.bind_item_theme("model_select_modal_content", window_theme)
     dpg.bind_item_theme("local_models_modal_content", window_theme)
+    dpg.bind_item_theme("about_modal_content", window_theme)
 
 
 def select_file_callback(sender, app_data):
@@ -210,6 +212,25 @@ def delete_selected_model_callback():
         f"Attempting to delete {selected_display_name} ({filename_to_delete})..."
     )
     start_delete_thread(filename_to_delete)
+
+
+def open_about_callback():
+    dpg.configure_item("about_modal", show=True)
+    dpg.set_value("update_status_text", "")
+    dpg.configure_item("download_update_button", show=False)
+    dpg.configure_item("update_loading_indicator", show=False)
+
+
+def check_for_update_callback():
+    start_update_check_thread()
+
+
+def download_and_update_callback():
+    update_url = dpg.get_value("update_url_storage")
+    if update_url:
+        start_download_and_update_thread(update_url)
+    else:
+        log_message("Update URL not found. Cannot start download.", level="ERROR")
 
 
 def build_gui():
@@ -409,6 +430,50 @@ def build_gui():
                     callback=delete_selected_model_callback,
                 )
 
+    about_modal_width = dpg.get_viewport_width() / 3
+    about_modal_height = dpg.get_viewport_height() / 3.5
+    with dpg.window(
+        label="About EasyMTL",
+        modal=True,
+        show=False,
+        tag="about_modal",
+        width=about_modal_width,
+        height=about_modal_height,
+        pos=[
+            (dpg.get_viewport_width() / 2) - (about_modal_width / 2),
+            (dpg.get_viewport_height() / 2) - (about_modal_height / 2),
+        ],
+    ):
+        with dpg.child_window(
+            tag="about_modal_content",
+            autosize_x=True,
+            autosize_y=True,
+        ):
+            dpg.add_text(f"Version: {APP_VERSION}")
+            dpg.add_separator()
+            dpg.add_spacer(height=10)
+
+            dpg.add_button(
+                label="Check for Updates",
+                tag="check_for_updates_button",
+                callback=check_for_update_callback,
+            )
+            dpg.add_spacer(height=5)
+            dpg.add_text("", tag="update_status_text", wrap=0)
+
+            dpg.add_text("", tag="update_url_storage", show=False)
+
+            dpg.add_loading_indicator(
+                tag="update_loading_indicator", show=False, style=1, radius=3
+            )
+
+            dpg.add_button(
+                label="Download & Install Update",
+                tag="download_update_button",
+                show=False,
+                callback=download_and_update_callback,
+            )
+
     with dpg.window(tag="primary_window", label="EasyMTL Translator"):
         with dpg.menu_bar():
             with dpg.menu(label="Settings"):
@@ -429,6 +494,8 @@ def build_gui():
                     label="Create Cover Page",
                     callback=lambda: dpg.configure_item("cover_tool_modal", show=True),
                 )
+            with dpg.menu(label="Help"):
+                dpg.add_menu_item(label="About", callback=open_about_callback)
 
         with dpg.child_window(
             tag="main_window",
