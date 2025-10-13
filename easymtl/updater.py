@@ -125,7 +125,8 @@ def run_download_and_update_process(url):
             str(os.getpid())
         ]
 
-        subprocess.Popen(command)
+        creation_flags = subprocess.DETACHED_PROCESS
+        subprocess.Popen(command, creationflags=creation_flags)
         
         if dpg.is_dearpygui_running():
             dpg.stop_dearpygui()

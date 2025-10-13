@@ -123,7 +123,7 @@ def build_updater():
         "pyinstaller",
         "--noconfirm",
         "--onefile",
-        "--console",
+        "--noconsole",
         "--name=updater",
         updater_script_path
     ]
