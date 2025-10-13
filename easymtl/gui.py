@@ -50,7 +50,7 @@ def setup_themes():
             dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 2, 2)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (57, 169, 92))
             dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (93, 64, 55))
-            dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, (57, 169, 92))
+            dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, (42, 128, 69))
         with dpg.theme_component(dpg.mvInputInt):
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 2.5)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (191, 54, 12))
