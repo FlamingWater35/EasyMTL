@@ -55,155 +55,225 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
             f"Selected chapters {start_chapter} to {end_chapter} ({total_chapters_to_process} total)."
         )
 
-        model_name = os.getenv("GEMINI_MODEL_NAME")
-
-        token_counter = None
-        safe_token_limit = 0
+        model_name = os.getenv("GEMINI_MODEL_NAME", DEFAULT_MODEL)
+        translation_map = {}
+        all_extraction_data = []
 
         if is_local_model(model_name):
-            log_message("Using local model for translation.")
-            token_counter = count_tokens_locally
-            safe_token_limit = LOCAL_MODEL_CONTEXT_SIZE - 1000
-        else:
-            log_message("Using cloud model for translation.")
-            token_counter = count_tokens_cloud
-            max_output_tokens = get_model_output_limit(log_message)
-            safe_token_limit = max_output_tokens - TOKEN_SAFETY_MARGIN
+            log_message("Using local model for translation (one chapter at a time).")
 
-        log_message(f"Using a safe input token limit of {safe_token_limit} per chunk.")
-
-        log_message("Pre-processing chapters to count tokens...")
-        chapter_data_list = []
-        for i, item in enumerate(chapters_to_translate_items):
-            item_content, item_extraction_data = extract_content_from_chapters(
-                [item], log_message, verbose=False
-            )
-            item_tokens = token_counter(item_content)
-            chapter_data_list.append(
-                {
-                    "item": item,
-                    "content": item_content,
-                    "tokens": item_tokens,
-                    "extraction_data": item_extraction_data[0],
-                }
-            )
-            if dpg.is_dearpygui_running():
-                progress = (i + 1) / (total_chapters_to_process * 2)
-                percent = int(progress * 100)
-                overlay_text = f"Analyzing... ({percent}%)"
-                dpg.set_value("progress_bar", progress)
-                dpg.configure_item("progress_bar", overlay=overlay_text)
-
+            log_message("Pre-processing all chapters...")
+            chapter_data_list = []
+            for item in chapters_to_translate_items:
+                item_content, item_extraction_data = extract_content_from_chapters(
+                    [item], log_message, verbose=False
+                )
+                chapter_data_list.append(
+                    {
+                        "item": item,
+                        "content": item_content,
+                        "extraction_data": item_extraction_data[0],
+                    }
+                )
             log_message("Pre-processing complete.", level="SUCCESS")
 
-        log_message(
-            f"Building dynamic chunks with a token limit of {safe_token_limit}..."
-        )
-        chunks = []
-        current_chunk_data, current_chunk_tokens = [], 0
-        for chapter_data in chapter_data_list:
-            if current_chunk_data and (
-                current_chunk_tokens + chapter_data["tokens"] > safe_token_limit
-            ):
-                chunks.append(current_chunk_data)
-                current_chunk_data, current_chunk_tokens = [], 0
-            current_chunk_data.append(chapter_data)
-            current_chunk_tokens += chapter_data["tokens"]
-        if current_chunk_data:
-            chunks.append(current_chunk_data)
+            for i, chapter_data in enumerate(chapter_data_list):
+                log_message(
+                    f"--- Processing Chapter {i + 1}/{total_chapters_to_process} ---"
+                )
 
-        log_message(f"Created {len(chunks)} chunks for processing.", level="SUCCESS")
+                response = translate_text_with_gemma(
+                    chapter_data["content"], log_message
+                )
 
-        translation_map, all_extraction_data = {}, []
-
-        while chunks:
-            chunk_data = chunks.pop(0)
-            chunk_items = [data["item"] for data in chunk_data]
-            chunk_content = "".join([data["content"] for data in chunk_data])
-            log_message(f"--- Processing Chunk (Size: {len(chunk_items)} chapters) ---")
-
-            chunk_translation_map, response_status = None, None
-
-            for attempt in range(2):
-                is_retry = attempt > 0
-                if is_local_model(model_name):
-                    response = translate_text_with_gemma(chunk_content, log_message)
+                if response["status"] == "SUCCESS" and response["text"]:
+                    translated_text = response["text"].strip()
+                    if translated_text:
+                        chapter_id = chapter_data["item"].get_name()
+                        translation_map[chapter_id] = translated_text
+                        all_extraction_data.append(chapter_data["extraction_data"])
+                    else:
+                        log_message(
+                            f"Local model returned an empty string for chapter {i+1}. Skipping.",
+                            level="WARNING",
+                        )
                 else:
+                    log_message(
+                        f"Translation failed for chapter {i+1}. Skipping.",
+                        level="ERROR",
+                    )
+
+                chapters_processed += 1
+
+                if dpg.is_dearpygui_running():
+                    elapsed_seconds = time.time() - start_time
+                    dpg.set_value(
+                        "elapsed_time_text", f"Elapsed: {format_time(elapsed_seconds)}"
+                    )
+                    progress = (
+                        chapters_processed / total_chapters_to_process
+                        if total_chapters_to_process > 0
+                        else 0
+                    )
+                    percent = int(progress * 100)
+                    overlay_text = (
+                        f"{chapters_processed}/{total_chapters_to_process} ({percent}%)"
+                    )
+                    dpg.set_value("progress_bar", progress)
+                    dpg.configure_item("progress_bar", overlay=overlay_text)
+                    if chapters_processed > 0 and progress < 1.0:
+                        time_per_chapter = elapsed_seconds / chapters_processed
+                        remaining_chapters = (
+                            total_chapters_to_process - chapters_processed
+                        )
+                        eta_seconds = time_per_chapter * remaining_chapters
+                        dpg.set_value(
+                            "eta_time_text", f"ETA: {format_time(eta_seconds)}"
+                        )
+
+        else:
+            log_message("Using cloud model for translation (batch processing).")
+
+            max_output_tokens = get_model_output_limit(log_message)
+            safe_token_limit = max_output_tokens - TOKEN_SAFETY_MARGIN
+            log_message(
+                f"Using a safe input token limit of {safe_token_limit} per chunk."
+            )
+
+            log_message("Pre-processing chapters to count tokens...")
+            chapter_data_list = []
+            for i, item in enumerate(chapters_to_translate_items):
+                item_content, item_extraction_data = extract_content_from_chapters(
+                    [item], log_message, verbose=False
+                )
+                item_tokens = count_tokens_cloud(item_content)
+                chapter_data_list.append(
+                    {
+                        "item": item,
+                        "content": item_content,
+                        "tokens": item_tokens,
+                        "extraction_data": item_extraction_data[0],
+                    }
+                )
+                if dpg.is_dearpygui_running():
+                    progress = (i + 1) / (total_chapters_to_process * 2)
+                    percent = int(progress * 100)
+                    dpg.set_value("progress_bar", progress)
+                    dpg.configure_item(
+                        "progress_bar", overlay=f"Analyzing... ({percent}%)"
+                    )
+
+            log_message("Pre-processing complete.", level="SUCCESS")
+            log_message(
+                f"Building dynamic chunks with a token limit of {safe_token_limit}..."
+            )
+            chunks = []
+            current_chunk_data, current_chunk_tokens = [], 0
+            for chapter_data in chapter_data_list:
+                if current_chunk_data and (
+                    current_chunk_tokens + chapter_data["tokens"] > safe_token_limit
+                ):
+                    chunks.append(current_chunk_data)
+                    current_chunk_data, current_chunk_tokens = [], 0
+                current_chunk_data.append(chapter_data)
+                current_chunk_tokens += chapter_data["tokens"]
+            if current_chunk_data:
+                chunks.append(current_chunk_data)
+
+            log_message(
+                f"Created {len(chunks)} chunks for processing.", level="SUCCESS"
+            )
+
+            while chunks:
+                chunk_data = chunks.pop(0)
+                chunk_items = [data["item"] for data in chunk_data]
+                chunk_content = "".join([data["content"] for data in chunk_data])
+                log_message(
+                    f"--- Processing Chunk (Size: {len(chunk_items)} chapters) ---"
+                )
+
+                chunk_translation_map, response_status = None, None
+                for attempt in range(2):
+                    is_retry = attempt > 0
                     response = translate_text_with_gemini(
                         chunk_content, log_message, is_retry=is_retry
                     )
+                    response_status = response["status"]
+                    if response_status in ["SUCCESS", "OUTPUT_TRUNCATED"]:
+                        chunk_translation_map = parse_translated_text(response["text"])
+                        break
+                    elif response_status == "TOKEN_LIMIT_EXCEEDED":
+                        break
+                    elif response_status == "FAILED":
+                        log_message(f"API call failed. Retrying...", level="ERROR")
+                    time.sleep(1)
 
-                response_status = response["status"]
-                if response_status in ["SUCCESS", "OUTPUT_TRUNCATED"]:
-                    chunk_translation_map = parse_translated_text(response["text"])
-                    break
+                if chunk_translation_map:
+                    translation_map.update(chunk_translation_map)
+                    translated_ids = set(chunk_translation_map.keys())
+                    for data in chunk_data:
+                        if data["item"].get_name() in translated_ids:
+                            all_extraction_data.append(data["extraction_data"])
+                    chapters_processed += len(chunk_translation_map)
+                    if response_status == "OUTPUT_TRUNCATED":
+                        log_message(
+                            f"Chunk was truncated. Re-queuing missing chapters.",
+                            level="WARNING",
+                        )
+                        untranslated_data = [
+                            data
+                            for data in chunk_data
+                            if data["item"].get_name() not in translated_ids
+                        ]
+                        if untranslated_data:
+                            log_message(
+                                f"Re-queuing a new chunk with {len(untranslated_data)} remaining chapters.",
+                                level="INFO",
+                            )
+                            chunks.insert(0, untranslated_data)
                 elif response_status == "TOKEN_LIMIT_EXCEEDED":
+                    log_message(
+                        "Halting translation due to input token limit.", level="ERROR"
+                    )
+                    process_halted = True
                     break
-                elif response_status == "FAILED":
-                    log_message(f"API call failed. Retrying...", level="ERROR")
+                else:
+                    log_message(
+                        f"Translation failed for this chunk after all retries. Skipping.",
+                        level="ERROR",
+                    )
+                    chapters_processed += len(chunk_items)
+
+                if dpg.is_dearpygui_running():
+                    elapsed_seconds = time.time() - start_time
+                    dpg.set_value(
+                        "elapsed_time_text", f"Elapsed: {format_time(elapsed_seconds)}"
+                    )
+                    progress = (
+                        chapters_processed / total_chapters_to_process
+                        if total_chapters_to_process > 0
+                        else 0
+                    )
+                    percent = int(progress * 100)
+                    overlay_text = (
+                        f"{chapters_processed}/{total_chapters_to_process} ({percent}%)"
+                    )
+                    dpg.set_value("progress_bar", progress)
+                    dpg.configure_item("progress_bar", overlay=overlay_text)
+                    if chapters_processed > 0 and progress < 1.0:
+                        time_per_chapter = elapsed_seconds / chapters_processed
+                        remaining_chapters = (
+                            total_chapters_to_process - chapters_processed
+                        )
+                        eta_seconds = time_per_chapter * remaining_chapters
+                        dpg.set_value(
+                            "eta_time_text", f"ETA: {format_time(eta_seconds)}"
+                        )
                 time.sleep(1)
 
-            if chunk_translation_map:
-                translation_map.update(chunk_translation_map)
-                translated_ids = set(chunk_translation_map.keys())
-                for data in chunk_data:
-                    if data["item"].get_name() in translated_ids:
-                        all_extraction_data.append(data["extraction_data"])
-                chapters_processed += len(chunk_translation_map)
-
-                if response_status == "OUTPUT_TRUNCATED":
-                    log_message(
-                        f"Chunk was truncated. Re-queuing missing chapters.",
-                        level="WARNING",
-                    )
-                    untranslated_data = [
-                        data
-                        for data in chunk_data
-                        if data["item"].get_name() not in translated_ids
-                    ]
-                    if untranslated_data:
-                        log_message(
-                            f"Re-queuing a new chunk with {len(untranslated_data)} remaining chapters.",
-                            level="INFO",
-                        )
-                        chunks.insert(0, untranslated_data)
-            elif response_status == "TOKEN_LIMIT_EXCEEDED":
-                log_message(
-                    "Halting translation due to input token limit.", level="ERROR"
-                )
-                process_halted = True
-                break
-            else:
-                log_message(
-                    f"Translation failed for this chunk after all retries. Skipping.",
-                    level="ERROR",
-                )
-                chapters_processed += len(chunk_items)
-
-            if dpg.is_dearpygui_running():
-                elapsed_seconds = time.time() - start_time
-                dpg.set_value(
-                    "elapsed_time_text", f"Elapsed: {format_time(elapsed_seconds)}"
-                )
-                progress = (
-                    chapters_processed / total_chapters_to_process
-                    if total_chapters_to_process > 0
-                    else 0
-                )
-                percent = int(progress * 100)
-                overlay_text = (
-                    f"{chapters_processed}/{total_chapters_to_process} ({percent}%)"
-                )
-                dpg.set_value("progress_bar", progress)
-                dpg.configure_item("progress_bar", overlay=overlay_text)
-                if chapters_processed > 0 and progress < 1.0:
-                    time_per_chapter = elapsed_seconds / chapters_processed
-                    remaining_chapters = total_chapters_to_process - chapters_processed
-                    eta_seconds = time_per_chapter * remaining_chapters
-                    dpg.set_value("eta_time_text", f"ETA: {format_time(eta_seconds)}")
-            time.sleep(1)
-
-        log_message("--- All chunks processed. Building the final EPUB file. ---")
+        log_message(
+            "--- All chapters/chunks processed. Building the final EPUB file. ---"
+        )
         if translation_map:
             create_translated_epub(
                 epub_path,
@@ -214,7 +284,7 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
             )
         else:
             log_message(
-                "Translation failed for all chunks. No EPUB file will be created.",
+                "Translation failed for all chapters. No EPUB file will be created.",
                 level="ERROR",
             )
 
