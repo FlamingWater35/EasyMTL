@@ -137,7 +137,10 @@ echo [Updater] Self-destructing...
             dpg.set_value("update_status_text", "Restarting to apply update...")
 
         subprocess.Popen([updater_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
-        sys.exit(0)
+        if dpg.is_dearpygui_running():
+            dpg.stop_dearpygui()
+        else:
+            sys.exit(0)
 
     except Exception as e:
         log_message(f"Update failed: {e}", level="ERROR")
