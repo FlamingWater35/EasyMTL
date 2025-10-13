@@ -1,4 +1,5 @@
 import re
+import shutil
 import subprocess
 import os
 import platform
@@ -137,6 +138,15 @@ def build_updater():
 
 
 def build_application():
+    print(Style.BRIGHT + Fore.YELLOW + "\n>>> Cleaning old build directory...")
+    if os.path.exists(DIST_DIR):
+        try:
+            shutil.rmtree(DIST_DIR)
+            print(Fore.GREEN + f"Removed directory: {DIST_DIR}")
+        except OSError as e:
+            print(Fore.RED + f"Error removing directory {DIST_DIR}: {e}")
+            return
+
     if not build_updater():
         return
 
@@ -182,7 +192,7 @@ def build_application():
     zip_path = os.path.join(DIST_DIR, zip_name)
 
     if not os.path.exists(exe_path):
-        print(Fore.RED + f"ERROR: {exe_name} not found in '{DIST_DIR}' after build. Cannot create zip file.")
+        print(Fore.RED + f"ERROR: {exe_name} not found in '{DIST_DIR}'. Cannot create zip file.")
         return
 
     try:
