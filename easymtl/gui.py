@@ -430,8 +430,8 @@ def build_gui():
                     callback=delete_selected_model_callback,
                 )
 
-    about_modal_width = dpg.get_viewport_width() / 3
-    about_modal_height = dpg.get_viewport_height() / 3.5
+    about_modal_width = dpg.get_viewport_width() / 2.5
+    about_modal_height = dpg.get_viewport_height() / 3
     with dpg.window(
         label="About EasyMTL",
         modal=True,
