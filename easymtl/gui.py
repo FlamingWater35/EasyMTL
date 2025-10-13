@@ -7,7 +7,12 @@ from ebooklib import epub, ITEM_DOCUMENT
 
 from easymtl.config import AVAILABLE_GEMMA_MODELS
 
-from .utils import resource_path, log_message, scan_for_local_models
+from .utils import (
+    get_reverse_model_map,
+    resource_path,
+    log_message,
+    scan_for_local_models,
+)
 from .core import (
     start_cover_creation_thread,
     start_delete_thread,
@@ -131,19 +136,20 @@ def save_model_callback():
 
 
 def open_local_models_callback():
-    local_models = scan_for_local_models()
+    local_model_files = scan_for_local_models()
+    reverse_map = get_reverse_model_map()
+    display_names = [reverse_map.get(f, f) for f in local_model_files]
+    dpg.configure_item("local_model_listbox", items=display_names)
 
     downloadable_models = [
         name
         for name, info in AVAILABLE_GEMMA_MODELS.items()
-        if info["file"] not in local_models
+        if info["file"] not in local_model_files
     ]
 
     dpg.configure_item("gemma_model_to_download_combo", items=downloadable_models)
     if downloadable_models:
         dpg.set_value("gemma_model_to_download_combo", downloadable_models[0])
-
-    dpg.configure_item("local_model_listbox", items=local_models)
     dpg.configure_item("local_models_modal", show=True)
 
 
@@ -155,22 +161,45 @@ def download_selected_model_callback():
 
 
 def select_local_model_callback():
-    selected_model = dpg.get_value("local_model_listbox")
-    if selected_model:
-        os.environ["GEMINI_MODEL_NAME"] = selected_model
-        log_message(
-            f"Local model for this session set to: {selected_model}", level="SUCCESS"
-        )
-        dpg.configure_item("local_models_modal", show=False)
+    selected_display_name = dpg.get_value("local_model_listbox")
+    if not selected_display_name:
+        return
+
+    filename_to_use = None
+    for name, info in AVAILABLE_GEMMA_MODELS.items():
+        if name == selected_display_name:
+            filename_to_use = info["file"]
+            break
+
+    if filename_to_use is None:
+        filename_to_use = selected_display_name
+
+    os.environ["GEMINI_MODEL_NAME"] = filename_to_use
+    log_message(
+        f"Local model for this session set to: {selected_display_name}", level="SUCCESS"
+    )
+    dpg.configure_item("local_models_modal", show=False)
 
 
 def delete_selected_model_callback():
-    selected_model = dpg.get_value("local_model_listbox")
-    if selected_model:
-        log_message(f"Attempting to delete {selected_model}...")
-        start_delete_thread(selected_model)
-    else:
+    selected_display_name = dpg.get_value("local_model_listbox")
+    if not selected_display_name:
         log_message("No model selected to delete.", level="WARNING")
+        return
+
+    filename_to_delete = None
+    for name, info in AVAILABLE_GEMMA_MODELS.items():
+        if name == selected_display_name:
+            filename_to_delete = info["file"]
+            break
+
+    if filename_to_delete is None:
+        filename_to_delete = selected_display_name
+
+    log_message(
+        f"Attempting to delete {selected_display_name} ({filename_to_delete})..."
+    )
+    start_delete_thread(filename_to_delete)
 
 
 def build_gui():
@@ -348,7 +377,22 @@ def build_gui():
                     tag="download_button",
                     callback=download_selected_model_callback,
                 )
-            dpg.add_loading_indicator(tag="download_loading_indicator", show=False, style=1, radius=5)
+            with dpg.group(horizontal=True):
+                dpg.add_spacer(width=5)
+                dpg.add_loading_indicator(
+                    tag="download_loading_indicator",
+                    show=False,
+                    style=1,
+                    radius=3,
+                    thickness=1.5,
+                    color=(81, 71, 164),
+                )
+                dpg.add_spacer(width=5)
+                with dpg.group():
+                    dpg.add_spacer(height=5)
+                    dpg.add_text(
+                        "Downloading...", tag="loading_indicator_label", show=False
+                    )
             dpg.add_spacer(height=5)
             dpg.add_separator()
 

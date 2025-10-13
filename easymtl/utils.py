@@ -2,10 +2,13 @@ import os
 import dearpygui.dearpygui as dpg
 from platformdirs import user_data_dir
 
+from easymtl.config import AVAILABLE_GEMMA_MODELS
+
 
 APP_NAME = "EasyMTL"
 APP_AUTHOR = "FlamingWater"
 MODELS_DIR = os.path.join(user_data_dir(APP_NAME, APP_AUTHOR), "models")
+_REVERSE_MODEL_MAP = None
 
 
 def get_models_dir():
@@ -42,6 +45,15 @@ def delete_local_model(filename, logger):
     else:
         logger(f"Deletion failed: Model not found at '{filename}'.", level="WARNING")
         return False
+
+
+def get_reverse_model_map():
+    global _REVERSE_MODEL_MAP
+    if _REVERSE_MODEL_MAP is None:
+        _REVERSE_MODEL_MAP = {
+            info["file"]: name for name, info in AVAILABLE_GEMMA_MODELS.items()
+        }
+    return _REVERSE_MODEL_MAP
 
 
 def resource_path(relative_path):
