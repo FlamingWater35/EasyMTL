@@ -10,6 +10,7 @@ from easymtl.config import AVAILABLE_GEMMA_MODELS
 from .utils import resource_path, log_message, scan_for_local_models
 from .core import (
     start_cover_creation_thread,
+    start_delete_thread,
     start_download_thread,
     start_model_fetch_thread,
     start_translation_thread,
@@ -130,10 +131,18 @@ def save_model_callback():
 
 
 def open_local_models_callback():
-    dpg.configure_item(
-        "gemma_model_to_download_combo", items=list(AVAILABLE_GEMMA_MODELS.keys())
-    )
     local_models = scan_for_local_models()
+
+    downloadable_models = [
+        name
+        for name, info in AVAILABLE_GEMMA_MODELS.items()
+        if info["file"] not in local_models
+    ]
+
+    dpg.configure_item("gemma_model_to_download_combo", items=downloadable_models)
+    if downloadable_models:
+        dpg.set_value("gemma_model_to_download_combo", downloadable_models[0])
+
     dpg.configure_item("local_model_listbox", items=local_models)
     dpg.configure_item("local_models_modal", show=True)
 
@@ -153,6 +162,15 @@ def select_local_model_callback():
             f"Local model for this session set to: {selected_model}", level="SUCCESS"
         )
         dpg.configure_item("local_models_modal", show=False)
+
+
+def delete_selected_model_callback():
+    selected_model = dpg.get_value("local_model_listbox")
+    if selected_model:
+        log_message(f"Attempting to delete {selected_model}...")
+        start_delete_thread(selected_model)
+    else:
+        log_message("No model selected to delete.", level="WARNING")
 
 
 def build_gui():
@@ -338,11 +356,17 @@ def build_gui():
             dpg.add_spacer(height=5)
             dpg.add_separator()
 
-            dpg.add_text("Select Active Local Model", wrap=0)
+            dpg.add_text("Manage Downloaded Models", wrap=0)
             dpg.add_listbox(tag="local_model_listbox", items=[], num_items=5)
-            dpg.add_button(
-                label="Use Selected Model", callback=select_local_model_callback
-            )
+            with dpg.group(horizontal=True):
+                dpg.add_button(
+                    label="Use Selected Model", callback=select_local_model_callback
+                )
+                dpg.add_button(
+                    label="Delete Selected Model",
+                    tag="delete_model_button",
+                    callback=delete_selected_model_callback,
+                )
 
     with dpg.window(tag="primary_window", label="EasyMTL Translator"):
         with dpg.menu_bar():

@@ -23,6 +23,27 @@ def scan_for_local_models():
     return found_models
 
 
+def delete_local_model(filename, logger):
+    models_dir = get_models_dir()
+    file_path = os.path.join(models_dir, filename)
+
+    if not os.path.abspath(file_path).startswith(os.path.abspath(models_dir)):
+        logger(f"Deletion failed: Invalid path '{filename}'.", level="ERROR")
+        return False
+
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+            logger(f"Successfully deleted model: {filename}", level="SUCCESS")
+            return True
+        except OSError as e:
+            logger(f"Failed to delete model: {e}", level="ERROR")
+            return False
+    else:
+        logger(f"Deletion failed: Model not found at '{filename}'.", level="WARNING")
+        return False
+
+
 def resource_path(relative_path):
     base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)

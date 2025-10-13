@@ -4,8 +4,8 @@ import time
 from ebooklib import epub, ITEM_DOCUMENT
 import dearpygui.dearpygui as dpg
 
-from .config import TOKEN_SAFETY_MARGIN, DEFAULT_MODEL
-from .utils import format_time, log_message, scan_for_local_models
+from .config import AVAILABLE_GEMMA_MODELS, TOKEN_SAFETY_MARGIN, DEFAULT_MODEL
+from .utils import delete_local_model, format_time, log_message, scan_for_local_models
 from .epub_handler import (
     create_cover_page_from_metadata,
     extract_content_from_chapters,
@@ -233,7 +233,9 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
     process_halted = False
 
     stop_event = threading.Event()
-    timer_thread = threading.Thread(target=_update_elapsed_time_continuously, args=(start_time, stop_event))
+    timer_thread = threading.Thread(
+        target=_update_elapsed_time_continuously, args=(start_time, stop_event)
+    )
     timer_thread.start()
 
     try:
@@ -377,6 +379,40 @@ def fetch_models_from_api():
 
 def start_model_fetch_thread():
     thread = threading.Thread(target=fetch_models_from_api)
+    thread.start()
+
+
+def run_delete_process(filename):
+    try:
+        if dpg.is_dearpygui_running():
+            dpg.configure_item("delete_model_button", enabled=False)
+
+        success = delete_local_model(filename, log_message)
+
+        if success and dpg.is_dearpygui_running():
+            local_models = scan_for_local_models()
+            dpg.configure_item("local_model_listbox", items=local_models)
+
+            downloadable_models = [
+                name
+                for name, info in AVAILABLE_GEMMA_MODELS.items()
+                if info["file"] not in local_models
+            ]
+            dpg.configure_item(
+                "gemma_model_to_download_combo", items=downloadable_models
+            )
+
+    except Exception as e:
+        log_message(
+            f"An unexpected error occurred during model deletion: {e}", level="ERROR"
+        )
+    finally:
+        if dpg.is_dearpygui_running():
+            dpg.configure_item("delete_model_button", enabled=True)
+
+
+def start_delete_thread(filename):
+    thread = threading.Thread(target=run_delete_process, args=(filename,))
     thread.start()
 
 
