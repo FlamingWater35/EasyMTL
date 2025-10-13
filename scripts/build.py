@@ -4,6 +4,7 @@ import platform
 import sys
 import threading
 from colorama import Fore, Style, init as colorama_init
+import llama_cpp
 
 # --- Initial Setup ---
 colorama_init(autoreset=True)
@@ -89,6 +90,13 @@ def format_code():
 def build_application():
     print(Style.BRIGHT + Fore.MAGENTA + "\n>>> Starting Application Build Process...")
 
+    llama_cpp_path = llama_cpp.__path__[0]
+    llama_lib_path = os.path.join(llama_cpp_path, "lib")
+    add_binary_arg = f"{llama_lib_path}{os.pathsep}llama_cpp/lib"
+    
+    log_message_text = f"Found llama_cpp binaries at: {llama_lib_path}"
+    print(Style.BRIGHT + Fore.YELLOW + log_message_text)
+
     assets_path_arg = f"{ASSETS_DIR}{os.pathsep}easymtl/assets"
 
     pyinstaller_command = [
@@ -99,6 +107,7 @@ def build_application():
         "--clean",
         f"--name={APP_NAME}",
         f"--icon={ICON_PATH}",
+        f"--add-binary={add_binary_arg}",
         f"--add-data={assets_path_arg}",
         MAIN_SCRIPT_PATH
     ]
