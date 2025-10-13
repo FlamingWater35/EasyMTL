@@ -440,17 +440,34 @@ def start_cover_creation_thread(epub_path):
 def run_download_process(repo_id, filename):
     try:
         if dpg.is_dearpygui_running():
+            dpg.configure_item("download_loading_indicator", show=True)
             dpg.configure_item("download_button", enabled=False)
+            dpg.configure_item("delete_model_button", enabled=False)
+
         success = download_model_from_hub(repo_id, filename, log_message)
+
         if success and dpg.is_dearpygui_running():
             local_models = scan_for_local_models()
             dpg.configure_item("local_model_listbox", items=local_models)
+
+            downloadable_models = [
+                name
+                for name, info in AVAILABLE_GEMMA_MODELS.items()
+                if info["file"] not in local_models
+            ]
+            dpg.configure_item(
+                "gemma_model_to_download_combo", items=downloadable_models
+            )
+            if downloadable_models:
+                dpg.set_value("gemma_model_to_download_combo", downloadable_models[0])
+
     except Exception as e:
         log_message(f"An unexpected error occurred during download: {e}", level="ERROR")
     finally:
         if dpg.is_dearpygui_running():
+            dpg.configure_item("download_loading_indicator", show=False)
             dpg.configure_item("download_button", enabled=True)
-            dpg.set_value("download_progress_bar", 0.0)
+            dpg.configure_item("delete_model_button", enabled=True)
 
 
 def start_download_thread(repo_id, filename):

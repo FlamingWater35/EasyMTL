@@ -1,31 +1,12 @@
 import os
-import re
-import io
-from tqdm import tqdm
 from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
 from huggingface_hub.utils import GatedRepoError, HfHubHTTPError
-import dearpygui.dearpygui as dpg
 from .utils import get_models_dir
 from .config import LOCAL_MODEL_CONTEXT_SIZE
 
 _LOCAL_MODEL_INSTANCE = None
 _LOADED_MODEL_PATH = None
-
-
-class TqdmProgressUpdater(io.StringIO):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.progress = 0
-
-    def write(self, s):
-        match = re.search(r"(\d+)%", s)
-        if match:
-            new_progress = int(match.group(1))
-            if new_progress > self.progress:
-                self.progress = new_progress
-                if dpg.is_dearpygui_running():
-                    dpg.set_value("download_progress_bar", self.progress / 100.0)
 
 
 def download_model_from_hub(repo_id, filename, logger):
@@ -34,20 +15,11 @@ def download_model_from_hub(repo_id, filename, logger):
     try:
         logger(f"Starting download of {filename} from {repo_id}...")
 
-        with tqdm(
-            unit="B",
-            unit_scale=True,
-            unit_divisor=1024,
-            miniters=1,
-            file=TqdmProgressUpdater(),
-        ) as t:
-            hf_hub_download(
-                repo_id=repo_id,
-                filename=filename,
-                local_dir=models_dir,
-                local_dir_use_symlinks=False,
-                resume_download=True,
-            )
+        hf_hub_download(
+            repo_id=repo_id,
+            filename=filename,
+            local_dir=models_dir,
+        )
 
         logger(f"Successfully downloaded {filename}!", level="SUCCESS")
         return True

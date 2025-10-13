@@ -348,11 +348,7 @@ def build_gui():
                     tag="download_button",
                     callback=download_selected_model_callback,
                 )
-            dpg.add_progress_bar(
-                tag="download_progress_bar",
-                default_value=0.0,
-                overlay="Download progress",
-            )
+            dpg.add_loading_indicator(tag="download_loading_indicator", show=False, style=1, radius=5)
             dpg.add_spacer(height=5)
             dpg.add_separator()
 
