@@ -460,13 +460,16 @@ def build_gui():
             )
             dpg.add_spacer(height=5)
             dpg.add_text("", tag="update_status_text", wrap=0)
-
             dpg.add_text("", tag="update_url_storage", show=False)
 
             dpg.add_loading_indicator(
-                tag="update_loading_indicator", show=False, style=1, radius=3
+                tag="update_loading_indicator",
+                show=False,
+                style=1,
+                radius=3,
+                thickness=1.5,
+                color=(81, 71, 164),
             )
-
             dpg.add_button(
                 label="Download & Install Update",
                 tag="download_update_button",

@@ -5,6 +5,7 @@ import tempfile
 import threading
 import zipfile
 import requests
+from packaging import version
 from easymtl.config import APP_VERSION, GITHUB_REPO
 from easymtl.utils import log_message
 import dearpygui.dearpygui as dpg
@@ -35,7 +36,7 @@ def run_update_check_process():
 
         log_message(f"Current version: {APP_VERSION}, Latest version: {latest_version}")
 
-        if latest_version > APP_VERSION:
+        if version.parse(latest_version) > version.parse(APP_VERSION):
             log_message(f"Update available: Version {latest_version}", level="SUCCESS")
             asset_url = None
             for asset in latest_release.get("assets", []):
@@ -116,7 +117,7 @@ def run_download_and_update_process(url):
 echo [Updater] Waiting for EasyMTL to close...
 timeout /t 3 /nobreak > nul
 echo [Updater] Replacing application file...
-move /Y "{new_exe_path}" "{current_exe_path}"
+move /Y "{new_exe_path}" "{current_exe_path}" >nul 2>&1
 echo [Updater] Cleaning up downloaded files...
 rd /s /q "{unzip_dir}"
 del "{download_path}"
@@ -147,7 +148,7 @@ echo [Updater] Self-destructing...
 
 
 def start_update_check_thread():
-    thread = threading.Thread(target=run_update_check_process)
+    thread = threading.Thread(target=run_update_check_process, daemon=True)
     thread.start()
 
 
