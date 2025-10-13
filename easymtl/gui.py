@@ -480,11 +480,11 @@ def build_gui():
                         default_value=0.0,
                         width=-170,
                         height=35,
-                        overlay="0/0 (0%)",
+                        overlay="",
                     )
                 with dpg.group():
-                    dpg.add_text("Elapsed: 00:00", tag="elapsed_time_text")
-                    dpg.add_text("ETA: --:--", tag="eta_time_text")
+                    dpg.add_text("", tag="elapsed_time_text")
+                    dpg.add_text("", tag="eta_time_text")
             dpg.add_spacer(height=5)
 
             with dpg.collapsing_header(label="Logs", default_open=True):
