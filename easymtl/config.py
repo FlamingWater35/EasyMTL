@@ -14,8 +14,4 @@ AVAILABLE_GEMMA_MODELS = {
         "repo": "unsloth/gemma-3-12b-it-GGUF",
         "file": "gemma-3-12b-it-Q4_K_M.gguf",
     },
-    "Gemma 3 - 27B (unsloth)": {
-        "repo": "unsloth/gemma-3-27b-it-GGUF",
-        "file": "gemma-3-27b-it-Q4_K_M.gguf",
-    },
 }

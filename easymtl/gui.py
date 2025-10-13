@@ -64,6 +64,7 @@ def setup_themes():
     dpg.bind_item_theme("api_key_modal_content", window_theme)
     dpg.bind_item_theme("cover_tool_modal_content", window_theme)
     dpg.bind_item_theme("model_select_modal_content", window_theme)
+    dpg.bind_item_theme("local_models_modal_content", window_theme)
 
 
 def select_file_callback(sender, app_data):
@@ -294,36 +295,54 @@ def build_gui():
                     ),
                 )
 
+    local_models_modal_width = dpg.get_viewport_width() / 1.3
+    local_models_modal_height = dpg.get_viewport_height() / 1.6
     with dpg.window(
         label="Local Model Manager",
         modal=True,
         show=False,
         tag="local_models_modal",
-        width=600,
-        height=400,
+        width=local_models_modal_width,
+        height=local_models_modal_height,
+        pos=[
+            (dpg.get_viewport_width() / 2) - (local_models_modal_width / 2),
+            (dpg.get_viewport_height() / 2) - (local_models_modal_height / 2),
+        ],
     ):
-        dpg.add_text("Download and select local Gemma models (GGUF).")
-        dpg.add_text(
-            "Models are saved to your user data directory.", color=(200, 200, 200)
-        )
-        dpg.add_separator()
-
-        dpg.add_text("Download New Model")
-        with dpg.group(horizontal=True):
-            dpg.add_combo(tag="gemma_model_to_download_combo", items=[], width=-150)
-            dpg.add_button(
-                label="Download",
-                tag="download_button",
-                callback=download_selected_model_callback,
+        with dpg.child_window(
+            tag="local_models_modal_content",
+            autosize_x=True,
+            autosize_y=True,
+        ):
+            dpg.add_text("Download and select local Gemma models (GGUF).", wrap=0)
+            dpg.add_text(
+                "Models are saved to your user data directory.",
+                color=(200, 200, 200),
+                wrap=0,
             )
-        dpg.add_progress_bar(
-            tag="download_progress_bar", default_value=0.0, overlay="Download progress"
-        )
-        dpg.add_separator()
+            dpg.add_separator()
 
-        dpg.add_text("Select Active Local Model")
-        dpg.add_listbox(tag="local_model_listbox", items=[], num_items=5)
-        dpg.add_button(label="Use Selected Model", callback=select_local_model_callback)
+            dpg.add_text("Download New Model")
+            with dpg.group(horizontal=True):
+                dpg.add_combo(tag="gemma_model_to_download_combo", items=[], width=-150)
+                dpg.add_button(
+                    label="Download",
+                    tag="download_button",
+                    callback=download_selected_model_callback,
+                )
+            dpg.add_progress_bar(
+                tag="download_progress_bar",
+                default_value=0.0,
+                overlay="Download progress",
+            )
+            dpg.add_spacer(height=5)
+            dpg.add_separator()
+
+            dpg.add_text("Select Active Local Model", wrap=0)
+            dpg.add_listbox(tag="local_model_listbox", items=[], num_items=5)
+            dpg.add_button(
+                label="Use Selected Model", callback=select_local_model_callback
+            )
 
     with dpg.window(tag="primary_window", label="EasyMTL Translator"):
         with dpg.menu_bar():
