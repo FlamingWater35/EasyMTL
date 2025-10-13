@@ -6,7 +6,6 @@ import threading
 from colorama import Fore, Style, init as colorama_init
 import llama_cpp
 
-# --- Initial Setup ---
 colorama_init(autoreset=True)
 
 APP_NAME = "EasyMTL"
@@ -17,18 +16,29 @@ ASSETS_DIR = os.path.join(EASYMTL_DIR, "assets")
 ICON_PATH = os.path.join(ASSETS_DIR, "icon.ico")
 
 
-def stream_pipe(pipe, prefix, color):
+def stream_pipe(pipe):
     try:
         for line_bytes in iter(pipe.readline, b""):
             if not line_bytes:
                 break
             try:
                 line = line_bytes.decode(errors="ignore").rstrip()
-                if line:
-                    print(color + prefix + line)
+                if not line:
+                    continue
+
+                line_lower = line.lower()
+                if 'error' in line_lower or 'failed' in line_lower:
+                    prefix, color = "[ERROR] ", Fore.RED
+                elif 'warn' in line_lower or 'warning' in line_lower:
+                    prefix, color = "[WARN]  ", Fore.YELLOW
+                else:
+                    prefix, color = "[INFO]  ", Fore.GREEN
+                
+                print(color + prefix + line)
                 sys.stdout.flush()
+
             except UnicodeDecodeError:
-                print(color + prefix + f"[RAW BYTES (decode error)]: {line_bytes!r}")
+                print(Fore.RED + f"[RAW BYTES (decode error)]: {line_bytes!r}")
                 sys.stdout.flush()
     except Exception:
         pass
@@ -51,17 +61,13 @@ def run_command_realtime_colored(command_parts, step_name, cwd=PROJECT_ROOT):
             command_parts,
             cwd=cwd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             shell=use_shell,
         )
 
-        stdout_thread = threading.Thread(target=stream_pipe, args=(process.stdout, "[INFO]  ", Fore.GREEN))
-        stderr_thread = threading.Thread(target=stream_pipe, args=(process.stderr, "[WARN]  ", Fore.YELLOW))
-
-        stdout_thread.start()
-        stderr_thread.start()
-        stdout_thread.join()
-        stderr_thread.join()
+        output_thread = threading.Thread(target=stream_pipe, args=(process.stdout,))
+        output_thread.start()
+        output_thread.join()
 
         return_code = process.wait()
 
