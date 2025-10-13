@@ -14,19 +14,6 @@ EasyMTL is a tool designed to quickly and accurately translate EPUB files. It pr
   - **Cloud**: Utilizes powerful Gemini models (for example, Gemini 2.5 Pro) via API for high-quality translations.
   - **Local**: Can also run translations completely offline using Gemma models (like Gemma 3) on your own hardware.
 
-- **Intelligent Processing**:
-  - **Token-Aware Batching**: Automatically groups chapters into optimal chunks to maximize speed and avoid cloud API token limits.
-  - **Adaptive Chunking**: If a model's output is truncated, the app automatically splits the failed chunk and retries, ensuring no content is lost.
-  - **Robust Error Handling**: Automatically retries failed API calls and gracefully handles model inconsistencies.
-
-- **Local Model Management**:
-  - **Downloader**: Browse and download optimized GGUF-format Gemma models directly from Hugging Face within the app.
-  - **Manager**: Easily switch between different downloaded local models or delete them to save space.
-
-- **EPUB Integrity**:
-  - **Structure Preservation**: The original EPUB structure, including images, is fully preserved in the translated output.
-  - **Formatted Output**: Translated chapters are generated with clean HTML and a consistent stylesheet for a pleasant reading experience.
-
 - **Built-in EPUB Tools**:
   - **Cover Page Generator**: A one-click tool to create a properly formatted, full-page cover for your EPUBs using the image from the book's metadata.
 
@@ -35,9 +22,44 @@ EasyMTL is a tool designed to quickly and accurately translate EPUB files. It pr
   - **Real-Time Feedback**: A detailed log, progress bar, elapsed time, and ETA throughout the translation process.
   - **Self-Updating Mechanism**: The application can check for new versions on GitHub and automatically download and install updates.
 
+- **And some more technical features, including:**
+  - **Intelligent Processing**:
+    - **Token-Aware Batching**: Automatically groups chapters into optimal chunks to maximize speed and avoid cloud API token limits.
+    - **Adaptive Chunking**: If a model's output is truncated, the app automatically splits the failed chunk and retries, ensuring no content is lost.
+    - **Robust Error Handling**: Automatically retries failed API calls and gracefully handles model inconsistencies.
+
+  - **Local Model Management**:
+    - **Downloader**: Browse and download optimized GGUF-format Gemma models directly from Hugging Face within the app.
+    - **Manager**: Easily switch between different downloaded local models or delete them to save space.
+
+  - **EPUB Integrity**:
+    - **Structure Preservation**: The original EPUB structure, including images, is fully preserved in the translated output.
+    - **Formatted Output**: Translated chapters are generated with clean HTML and a consistent stylesheet for a pleasant reading experience.
+
 ## 📸 Screenshots
 
-![EasyMTL Screenshot](screenshots/Screenshot%202025-10-13%20221645.png "The EasyMTL interface")
+<table width="100%">
+  <tr>
+    <td align="center">
+      <p><b>Main Interface</b></p>
+      <img src="screenshots\Screenshot 2025-10-13 221645.png" alt="Main application interface" width="400">
+    </td>
+    <td align="center">
+      <p><b>Local Model Manager</b></p>
+      <img src="screenshots\Screenshot 2025-10-13 222039.png" alt="Local model management window" width="400">
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <p><b>Cloud Model Selection</b></p>
+      <img src="screenshots\Screenshot 2025-10-13 222242.png" alt="Cloud model selection window" width="400">
+    </td>
+    <td align="center">
+      <p><b>Cover Creation Tool</b></p>
+      <img src="screenshots\Screenshot 2025-10-13 231314.png" alt="Cover creation tool" width="400">
+    </td>
+  </tr>
+</table>
 
 ## 🚀 Installation & Setup
 
