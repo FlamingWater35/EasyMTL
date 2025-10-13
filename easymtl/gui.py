@@ -415,18 +415,18 @@ def build_gui():
                     label="Set API Key",
                     callback=lambda: dpg.configure_item("api_key_modal", show=True),
                 )
+            with dpg.menu(label="Models"):
+                dpg.add_menu_item(
+                    label="Select Cloud Model", callback=open_model_selector_callback
+                )
                 dpg.add_separator()
                 dpg.add_menu_item(
-                    label="Select Model", callback=open_model_selector_callback
+                    label="Manage Local Models", callback=open_local_models_callback
                 )
             with dpg.menu(label="Tools"):
                 dpg.add_menu_item(
                     label="Create Cover Page",
                     callback=lambda: dpg.configure_item("cover_tool_modal", show=True),
-                )
-            with dpg.menu(label="Local Models"):
-                dpg.add_menu_item(
-                    label="Manage Models", callback=open_local_models_callback
                 )
 
         with dpg.child_window(

@@ -331,7 +331,7 @@ def start_translation_thread():
     model_name = os.getenv("GEMINI_MODEL_NAME", DEFAULT_MODEL)
     if not is_local_model(model_name) and not os.getenv("GOOGLE_API_KEY"):
         log_message(
-            "ERROR: API Key is not set. Please use Settings > Set API Key.",
+            "ERROR: API Key is not set. Please set it to use cloud models.",
             level="ERROR",
         )
         dpg.show_item("api_key_modal")
