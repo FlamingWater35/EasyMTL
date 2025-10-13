@@ -110,9 +110,11 @@ def run_download_and_update_process(url):
             return
 
         current_exe_path = sys.executable
-        updater_exe_path = resource_path("updater.exe") 
-        
-        log_message("Updater found. The application will now close and update.", level="WARNING")
+        updater_exe_path = resource_path("updater.exe")
+
+        log_message(
+            "Updater found. The application will now close and update.", level="WARNING"
+        )
         if dpg.is_dearpygui_running():
             dpg.set_value("update_status_text", "Restarting to apply update...")
 
@@ -122,12 +124,12 @@ def run_download_and_update_process(url):
             new_exe_path,
             download_path,
             unzip_dir,
-            str(os.getpid())
+            str(os.getpid()),
         ]
 
         creation_flags = subprocess.DETACHED_PROCESS
         subprocess.Popen(command, creationflags=creation_flags)
-        
+
         if dpg.is_dearpygui_running():
             dpg.stop_dearpygui()
         else:
