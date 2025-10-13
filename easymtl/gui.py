@@ -415,6 +415,7 @@ def build_gui():
                     label="Set API Key",
                     callback=lambda: dpg.configure_item("api_key_modal", show=True),
                 )
+                dpg.add_separator()
                 dpg.add_menu_item(
                     label="Select Model", callback=open_model_selector_callback
                 )
