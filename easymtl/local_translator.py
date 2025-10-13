@@ -130,12 +130,3 @@ Preserve any placeholder tags like `[IMAGE_PLACEHOLDER_N]` exactly as they appea
         logger(f"An error occurred during local inference: {e}", level="ERROR")
         _LOCAL_MODEL_INSTANCE, _LOADED_MODEL_PATH = None, None
         return {"status": "FAILED", "text": None}
-
-
-def count_tokens_locally(text):
-    if not _LOCAL_MODEL_INSTANCE:
-        return len(text) // 3
-    try:
-        return len(_LOCAL_MODEL_INSTANCE.tokenize(text.encode("utf-8")))
-    except Exception:
-        return len(text) // 3
