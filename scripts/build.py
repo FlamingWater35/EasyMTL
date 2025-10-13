@@ -156,7 +156,7 @@ def build_application():
         return
 
     try:
-        print(f"Archiving '{exe_name}' into '{zip_name}'...")
+        print(Style.BRIGHT + Fore.CYAN + f"Archiving '{exe_name}' into '{zip_name}'...")
         with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
             zipf.write(exe_path, arcname=exe_name)
         
