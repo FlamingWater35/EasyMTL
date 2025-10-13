@@ -1,8 +1,10 @@
+import re
 import subprocess
 import os
 import platform
 import sys
 import threading
+import zipfile
 from colorama import Fore, Style, init as colorama_init
 import llama_cpp
 
@@ -14,6 +16,8 @@ EASYMTL_DIR = os.path.join(PROJECT_ROOT, "easymtl")
 MAIN_SCRIPT_PATH = os.path.join(PROJECT_ROOT, "main.py")
 ASSETS_DIR = os.path.join(EASYMTL_DIR, "assets")
 ICON_PATH = os.path.join(ASSETS_DIR, "icon.ico")
+CONFIG_PATH = os.path.join(EASYMTL_DIR, "config.py")
+DIST_DIR = os.path.join(PROJECT_ROOT, "dist")
 
 
 def stream_pipe(pipe):
@@ -86,6 +90,22 @@ def run_command_realtime_colored(command_parts, step_name, cwd=PROJECT_ROOT):
         return False
 
 
+def get_app_version():
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            content = f.read()
+            match = re.search(r"^APP_VERSION\s*=\s*['\"]([^'\"]*)['\"]", content, re.MULTILINE)
+            if match:
+                version = match.group(1)
+                print(Style.BRIGHT + Fore.MAGENTA + f"Found App Version: {version}")
+                return version
+    except Exception as e:
+        print(Fore.RED + f"Could not read version from config.py: {e}")
+    
+    print(Fore.RED + "Warning: Could not determine app version. Using '0.0.0'.")
+    return "0.0.0"
+
+
 def format_code():
     print(Style.BRIGHT + Fore.MAGENTA + "\n>>> Running Code Formatter...")
     if not run_command_realtime_colored(["black", EASYMTL_DIR], "Formatting with Black"):
@@ -94,15 +114,14 @@ def format_code():
 
 
 def build_application():
-    print(Style.BRIGHT + Fore.MAGENTA + "\n>>> Starting Application Build Process...")
+    app_version = get_app_version()
+    print(Style.BRIGHT + Fore.MAGENTA + f"\n>>> Starting Application Build for v{app_version}...")
 
     llama_cpp_path = llama_cpp.__path__[0]
     llama_lib_path = os.path.join(llama_cpp_path, "lib")
     add_binary_arg = f"{llama_lib_path}{os.pathsep}llama_cpp/lib"
-    
     log_message_text = f"Found llama_cpp binaries at: {llama_lib_path}"
     print(Style.BRIGHT + Fore.YELLOW + log_message_text)
-
     assets_path_arg = f"{ASSETS_DIR}{os.pathsep}easymtl/assets"
 
     pyinstaller_command = [
@@ -122,8 +141,32 @@ def build_application():
         print(Fore.RED + "Build failed. Check the logs above for errors.")
         return
         
+    print(Style.BRIGHT + Fore.GREEN + "\nPyInstaller build completed successfully.")
+
+    print(Style.BRIGHT + Fore.CYAN + "\n" + "-" * 60)
+    print(Style.BRIGHT + Fore.CYAN + "Creating release .zip archive for updater...")
+    
+    exe_name = f"{APP_NAME}.exe"
+    exe_path = os.path.join(DIST_DIR, exe_name)
+    zip_name = f"{APP_NAME}-v{app_version}-windows.zip"
+    zip_path = os.path.join(DIST_DIR, zip_name)
+
+    if not os.path.exists(exe_path):
+        print(Fore.RED + f"ERROR: {exe_name} not found in '{DIST_DIR}' after build. Cannot create zip file.")
+        return
+
+    try:
+        print(f"Archiving '{exe_name}' into '{zip_name}'...")
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(exe_path, arcname=exe_name)
+        
+        print(Fore.GREEN + "Release .zip archive created successfully.")
+    except Exception as e:
+        print(Fore.RED + f"ERROR: Failed to create zip file: {e}")
+        return
+
     print(Style.BRIGHT + Fore.MAGENTA + "\n>>> Build process finished.")
-    print(Style.BRIGHT + Fore.MAGENTA + f"--> The executable can be found in the '{os.path.join(PROJECT_ROOT, 'dist')}' folder.")
+    print(Style.BRIGHT + Fore.MAGENTA + f"--> The executable and release zip can be found in the '{DIST_DIR}' folder.")
 
 
 def main():
