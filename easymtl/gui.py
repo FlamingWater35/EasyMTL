@@ -60,6 +60,12 @@ def setup_themes():
         with dpg.theme_component(dpg.mvInputInt):
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 2.5)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (191, 54, 12))
+        with dpg.theme_component(dpg.mvInputText):
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 8, 3)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (191, 54, 12))
+        with dpg.theme_component(dpg.mvCombo):
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 8, 3)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (191, 54, 12))
         with dpg.theme_component(dpg.mvCollapsingHeader):
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 5)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (0, 96, 100))
@@ -305,17 +311,18 @@ def build_gui():
     ):
         dpg.add_file_extension(".epub", color=(0, 255, 0, 255))
 
+    model_select_modal_width = dpg.get_viewport_width() / 2
+    model_select_modal_height = dpg.get_viewport_height() / 2.9
     with dpg.window(
         label="Model Selection",
         modal=True,
         show=False,
         tag="model_select_modal",
-        no_close=True,
-        width=api_modal_width,
-        height=api_modal_height * 1.2,
+        width=model_select_modal_width,
+        height=model_select_modal_height,
         pos=[
-            (dpg.get_viewport_width() / 2) - (api_modal_width / 2),
-            (dpg.get_viewport_height() / 2) - (api_modal_height / 2),
+            (dpg.get_viewport_width() / 2) - (model_select_modal_width / 2),
+            (dpg.get_viewport_height() / 2) - (model_select_modal_height / 2),
         ],
     ):
         with dpg.child_window(
@@ -330,20 +337,10 @@ def build_gui():
             dpg.add_combo(tag="model_combo", label="Model", items=[], width=-60)
             dpg.add_spacer(height=20)
 
-            with dpg.group(horizontal=True):
-                dpg.add_button(
-                    label="Set Model", width=120, callback=save_model_callback
-                )
-                dpg.add_button(
-                    label="Cancel",
-                    width=120,
-                    callback=lambda: dpg.configure_item(
-                        "model_select_modal", show=False
-                    ),
-                )
+            dpg.add_button(label="Set Model", width=-1, callback=save_model_callback)
 
-    local_models_modal_width = dpg.get_viewport_width() / 1.3
-    local_models_modal_height = dpg.get_viewport_height() / 1.6
+    local_models_modal_width = dpg.get_viewport_width() / 1.7
+    local_models_modal_height = dpg.get_viewport_height() / 1.8
     with dpg.window(
         label="Local Model Manager",
         modal=True,
@@ -397,7 +394,7 @@ def build_gui():
             dpg.add_separator()
 
             dpg.add_text("Manage Downloaded Models", wrap=0)
-            dpg.add_listbox(tag="local_model_listbox", items=[], num_items=5)
+            dpg.add_listbox(tag="local_model_listbox", items=[], num_items=5, width=-1)
             with dpg.group(horizontal=True):
                 dpg.add_button(
                     label="Use Selected Model", callback=select_local_model_callback
