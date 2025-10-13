@@ -1,0 +1,138 @@
+import subprocess
+import os
+import platform
+import sys
+import threading
+from colorama import Fore, Style, init as colorama_init
+
+# --- Initial Setup ---
+colorama_init(autoreset=True)
+
+APP_NAME = "EasyMTL"
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+EASYMTL_DIR = os.path.join(PROJECT_ROOT, "easymtl")
+MAIN_SCRIPT_PATH = os.path.join(PROJECT_ROOT, "main.py")
+ASSETS_DIR = os.path.join(EASYMTL_DIR, "assets")
+ICON_PATH = os.path.join(ASSETS_DIR, "icon.ico")
+
+
+def stream_pipe(pipe, prefix, color):
+    try:
+        for line_bytes in iter(pipe.readline, b""):
+            if not line_bytes:
+                break
+            try:
+                line = line_bytes.decode(errors="ignore").rstrip()
+                if line:
+                    print(color + prefix + line)
+                sys.stdout.flush()
+            except UnicodeDecodeError:
+                print(color + prefix + f"[RAW BYTES (decode error)]: {line_bytes!r}")
+                sys.stdout.flush()
+    except Exception:
+        pass
+    finally:
+        if hasattr(pipe, "close") and not pipe.closed:
+            pipe.close()
+
+
+def run_command_realtime_colored(command_parts, step_name, cwd=PROJECT_ROOT):
+    print(Style.BRIGHT + Fore.CYAN + "-" * 60)
+    print(Style.BRIGHT + Fore.CYAN + f"Starting: {step_name}")
+    command_str = " ".join(command_parts)
+    print(Style.BRIGHT + Fore.CYAN + f"Executing: {command_str} (in {cwd})")
+    print(Style.BRIGHT + Fore.CYAN + "-" * 60)
+
+    use_shell = platform.system() == "Windows"
+
+    try:
+        process = subprocess.Popen(
+            command_parts,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=use_shell,
+        )
+
+        stdout_thread = threading.Thread(target=stream_pipe, args=(process.stdout, "[INFO]  ", Fore.GREEN))
+        stderr_thread = threading.Thread(target=stream_pipe, args=(process.stderr, "[WARN]  ", Fore.YELLOW))
+
+        stdout_thread.start()
+        stderr_thread.start()
+        stdout_thread.join()
+        stderr_thread.join()
+
+        return_code = process.wait()
+
+        if return_code != 0:
+            print(Fore.RED + Style.BRIGHT + f"\nERROR: {step_name} exited with code {return_code}.")
+            return False
+
+        print(Fore.GREEN + Style.BRIGHT + f"\nCompleted: {step_name} successfully.")
+        return True
+
+    except FileNotFoundError:
+        print(Fore.RED + Style.BRIGHT + f"ERROR: Command '{command_parts[0]}' not found. Make sure it's in your system's PATH.")
+        return False
+    except Exception as e:
+        print(Fore.RED + Style.BRIGHT + f"ERROR: An unexpected error occurred during {step_name}: {e}")
+        return False
+
+
+def format_code():
+    print(Style.BRIGHT + Fore.MAGENTA + "\n>>> Running Code Formatter...")
+    if not run_command_realtime_colored(["black", EASYMTL_DIR], "Formatting with Black"):
+        print(Fore.RED + "Formatting failed.")
+    print(Style.BRIGHT + Fore.MAGENTA + ">>> Formatting finished.\n")
+
+
+def build_application():
+    print(Style.BRIGHT + Fore.MAGENTA + "\n>>> Starting Application Build Process...")
+
+    assets_path_arg = f"{ASSETS_DIR}{os.pathsep}easymtl/assets"
+
+    pyinstaller_command = [
+        "pyinstaller",
+        "--noconfirm",
+        "--onefile",
+        "--windowed",
+        "--clean",
+        f"--name={APP_NAME}",
+        f"--icon={ICON_PATH}",
+        f"--add-data={assets_path_arg}",
+        MAIN_SCRIPT_PATH
+    ]
+
+    if not run_command_realtime_colored(pyinstaller_command, "Building with PyInstaller"):
+        print(Fore.RED + "Build failed. Check the logs above for errors.")
+        return
+        
+    print(Style.BRIGHT + Fore.MAGENTA + "\n>>> Build process finished.")
+    print(Style.BRIGHT + Fore.MAGENTA + f"--> The executable can be found in the '{os.path.join(PROJECT_ROOT, 'dist')}' folder.")
+
+
+def main():
+    while True:
+        print(Style.BRIGHT + Fore.WHITE + "\n" + "=" * 30)
+        print(Style.BRIGHT + Fore.WHITE + f"    {APP_NAME} Build Script")
+        print(Style.BRIGHT + Fore.WHITE + "=" * 30)
+        print(Fore.CYAN + "1. Format Code (Black)")
+        print(Fore.CYAN + "2. Build Application (PyInstaller)")
+        print(Fore.CYAN + "3. Quit")
+        print("-" * 30)
+
+        choice = input(Fore.WHITE + "Enter your choice (1-3): ")
+
+        if choice == "1":
+            format_code()
+        elif choice == "2":
+            build_application()
+        elif choice == "3":
+            print(Fore.YELLOW + "Exiting script. Goodbye!")
+            break
+        else:
+            print(Fore.RED + "Invalid choice. Please enter a number between 1 and 3.")
+
+
+if __name__ == "__main__":
+    main()

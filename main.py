@@ -1,4 +1,5 @@
-from easymtl import __main__
+from easymtl.__main__ import run_app
+
 
 if __name__ == "__main__":
-    __main__.run_app()
+    run_app()

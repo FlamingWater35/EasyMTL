@@ -7,3 +7,5 @@ pywinstyles
 black
 llama-cpp-python
 huggingface-hub
+pyinstaller
+colorama
