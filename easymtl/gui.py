@@ -58,8 +58,12 @@ def setup_themes():
             dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (93, 64, 55))
             dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, (42, 128, 69))
         with dpg.theme_component(dpg.mvInputInt):
-            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 2.5)
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 8, 3)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (191, 54, 12))
+        with dpg.theme_component(dpg.mvInputInt, enabled_state=False):
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 8, 3)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (148, 147, 150))
+            dpg.add_theme_color(dpg.mvThemeCol_Text, (123, 123, 123))
         with dpg.theme_component(dpg.mvInputText):
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 8, 3)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (191, 54, 12))
@@ -450,6 +454,7 @@ def build_gui():
                     tag="start_chapter_input",
                     default_value=1,
                     min_value=1,
+                    min_clamped=True,
                     width=150,
                     enabled=False,
                 )
@@ -458,6 +463,7 @@ def build_gui():
                     tag="end_chapter_input",
                     default_value=1,
                     min_value=1,
+                    min_clamped=True,
                     width=150,
                     enabled=False,
                 )
