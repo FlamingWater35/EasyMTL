@@ -113,7 +113,33 @@ def format_code():
     print(Style.BRIGHT + Fore.MAGENTA + ">>> Formatting finished.\n")
 
 
+def build_updater():
+    print(Style.BRIGHT + Fore.CYAN + "\n" + "-" * 60)
+    print(Style.BRIGHT + Fore.CYAN + "Building updater executable...")
+    
+    updater_script_path = os.path.join(PROJECT_ROOT, "scripts", "updater.py")
+    
+    pyinstaller_command = [
+        "pyinstaller",
+        "--noconfirm",
+        "--onefile",
+        "--console",
+        "--name=updater",
+        updater_script_path
+    ]
+    
+    if not run_command_realtime_colored(pyinstaller_command, "Building Updater"):
+        print(Fore.RED + "Updater build failed. Aborting main build.")
+        return False
+        
+    print(Fore.GREEN + "Updater built successfully.")
+    return True
+
+
 def build_application():
+    if not build_updater():
+        return
+
     app_version = get_app_version()
     print(Style.BRIGHT + Fore.MAGENTA + f"\n>>> Starting Application Build for v{app_version}...")
 
@@ -123,6 +149,9 @@ def build_application():
     log_message_text = f"Found llama_cpp binaries at: {llama_lib_path}"
     print(Style.BRIGHT + Fore.YELLOW + log_message_text)
     assets_path_arg = f"{ASSETS_DIR}{os.pathsep}easymtl/assets"
+    
+    updater_exe_path = os.path.join(DIST_DIR, "updater.exe")
+    add_updater_arg = f"{updater_exe_path}{os.pathsep}."
 
     pyinstaller_command = [
         "pyinstaller",
@@ -134,11 +163,12 @@ def build_application():
         f"--icon={ICON_PATH}",
         f"--add-binary={add_binary_arg}",
         f"--add-data={assets_path_arg}",
+        f"--add-data={add_updater_arg}",
         MAIN_SCRIPT_PATH
     ]
-
-    if not run_command_realtime_colored(pyinstaller_command, "Building with PyInstaller"):
-        print(Fore.RED + "Build failed. Check the logs above for errors.")
+    
+    if not run_command_realtime_colored(pyinstaller_command, "Building Main Application"):
+        print(Fore.RED + "Main application build failed.")
         return
         
     print(Style.BRIGHT + Fore.GREEN + "\nPyInstaller build completed successfully.")

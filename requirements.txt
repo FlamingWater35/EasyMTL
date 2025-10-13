@@ -10,3 +10,4 @@ huggingface-hub
 pyinstaller
 colorama
 requests
+psutil

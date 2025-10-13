@@ -7,7 +7,7 @@ import zipfile
 import requests
 from packaging import version
 from easymtl.config import APP_VERSION, GITHUB_REPO
-from easymtl.utils import log_message
+from easymtl.utils import log_message, resource_path
 import dearpygui.dearpygui as dpg
 
 
@@ -110,33 +110,23 @@ def run_download_and_update_process(url):
             return
 
         current_exe_path = sys.executable
-        updater_path = os.path.join(temp_dir, "updater.bat")
-
-        updater_script = f"""
-@echo off
-echo [Updater] Waiting for EasyMTL to close...
-timeout /t 3 /nobreak > nul
-echo [Updater] Replacing application file...
-move /Y "{new_exe_path}" "{current_exe_path}" >nul 2>&1
-echo [Updater] Cleaning up downloaded files...
-rd /s /q "{unzip_dir}"
-del "{download_path}"
-echo [Updater] Relaunching application...
-start "" "{current_exe_path}"
-echo [Updater] Self-destructing...
-(goto) 2>nul & del "%~f0"
-"""
-        with open(updater_path, "w") as f:
-            f.write(updater_script)
-
-        log_message(
-            "Updater created. The application will now close and update.",
-            level="WARNING",
-        )
+        updater_exe_path = resource_path("updater.exe") 
+        
+        log_message("Updater found. The application will now close and update.", level="WARNING")
         if dpg.is_dearpygui_running():
             dpg.set_value("update_status_text", "Restarting to apply update...")
 
-        subprocess.Popen([updater_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        command = [
+            updater_exe_path,
+            current_exe_path,
+            new_exe_path,
+            download_path,
+            unzip_dir,
+            str(os.getpid())
+        ]
+
+        subprocess.Popen(command)
+        
         if dpg.is_dearpygui_running():
             dpg.stop_dearpygui()
         else:
