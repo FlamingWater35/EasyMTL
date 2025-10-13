@@ -28,7 +28,21 @@ def is_local_model(model_name):
     return model_name and model_name.endswith(".gguf")
 
 
+def _update_elapsed_time_continuously(start_time, stop_event):
+    while not stop_event.is_set():
+        if dpg.is_dearpygui_running():
+            elapsed_seconds = time.time() - start_time
+            dpg.set_value(
+                "elapsed_time_text", f"Elapsed: {format_time(elapsed_seconds)}"
+            )
+        time.sleep(1)
+
+
 def _process_with_local_model(chapters_to_translate, start_time, log_message):
+    total_chapters_to_process = len(chapters_to_translate)
+    chapters_processed = 0
+    translation_map, all_extraction_data = {}, []
+
     log_message("Pre-processing all chapters for local translation...")
     chapter_data_list = []
     for item in chapters_to_translate:
@@ -43,10 +57,6 @@ def _process_with_local_model(chapters_to_translate, start_time, log_message):
             }
         )
     log_message("Pre-processing complete.", level="SUCCESS")
-
-    translation_map, all_extraction_data = {}, []
-    total_chapters_to_process = len(chapters_to_translate)
-    chapters_processed = 0
 
     for i, chapter_data in enumerate(chapter_data_list):
         log_message(f"--- Processing Chapter {i + 1}/{total_chapters_to_process} ---")
@@ -71,10 +81,6 @@ def _process_with_local_model(chapters_to_translate, start_time, log_message):
         chapters_processed += 1
 
         if dpg.is_dearpygui_running():
-            elapsed_seconds = time.time() - start_time
-            dpg.set_value(
-                "elapsed_time_text", f"Elapsed: {format_time(elapsed_seconds)}"
-            )
             progress = (
                 chapters_processed / total_chapters_to_process
                 if total_chapters_to_process > 0
@@ -87,6 +93,7 @@ def _process_with_local_model(chapters_to_translate, start_time, log_message):
             dpg.set_value("progress_bar", progress)
             dpg.configure_item("progress_bar", overlay=overlay_text)
             if chapters_processed > 0 and progress < 1.0:
+                elapsed_seconds = time.time() - start_time
                 time_per_chapter = elapsed_seconds / chapters_processed
                 remaining_chapters = total_chapters_to_process - chapters_processed
                 eta_seconds = time_per_chapter * remaining_chapters
@@ -96,12 +103,12 @@ def _process_with_local_model(chapters_to_translate, start_time, log_message):
 
 
 def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
+    total_chapters_to_process = len(chapters_to_translate)
     max_output_tokens = get_model_output_limit(log_message)
     safe_token_limit = max_output_tokens - TOKEN_SAFETY_MARGIN
     log_message(f"Using a safe input token limit of {safe_token_limit} per chunk.")
 
     log_message("Pre-processing chapters to count tokens...")
-    total_chapters_to_process = len(chapters_to_translate)
     chapter_data_list = []
     for i, item in enumerate(chapters_to_translate):
         item_content, item_extraction_data = extract_content_from_chapters(
@@ -117,10 +124,8 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
             }
         )
         if dpg.is_dearpygui_running():
-            progress = (i + 1) / (total_chapters_to_process * 2)
-            percent = int(progress * 100)
-            dpg.set_value("progress_bar", progress)
-            dpg.configure_item("progress_bar", overlay=f"Analyzing... ({percent}%)")
+            overlay_text = f"Analyzing {i + 1}/{total_chapters_to_process}..."
+            dpg.configure_item("progress_bar", overlay=overlay_text)
 
     log_message("Pre-processing complete.", level="SUCCESS")
 
@@ -190,9 +195,7 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
                     chunks.insert(0, untranslated_data)
         elif response_status == "TOKEN_LIMIT_EXCEEDED":
             log_message("Halting translation due to input token limit.", level="ERROR")
-            raise InterruptedError(
-                "TOKEN_LIMIT_EXCEEDED"
-            )
+            raise InterruptedError("TOKEN_LIMIT_EXCEEDED")
         else:
             log_message(
                 f"Translation failed for this chunk after all retries. Skipping.",
@@ -201,10 +204,6 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
             chapters_processed += len(chunk_items)
 
         if dpg.is_dearpygui_running():
-            elapsed_seconds = time.time() - start_time
-            dpg.set_value(
-                "elapsed_time_text", f"Elapsed: {format_time(elapsed_seconds)}"
-            )
             progress = (
                 chapters_processed / total_chapters_to_process
                 if total_chapters_to_process > 0
@@ -217,6 +216,7 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
             dpg.set_value("progress_bar", progress)
             dpg.configure_item("progress_bar", overlay=overlay_text)
             if chapters_processed > 0 and progress < 1.0:
+                elapsed_seconds = time.time() - start_time
                 time_per_chapter = elapsed_seconds / chapters_processed
                 remaining_chapters = total_chapters_to_process - chapters_processed
                 eta_seconds = time_per_chapter * remaining_chapters
@@ -231,6 +231,10 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
     chapters_processed = 0
     total_chapters_to_process = 0
     process_halted = False
+
+    stop_event = threading.Event()
+    timer_thread = threading.Thread(target=_update_elapsed_time_continuously, args=(start_time, stop_event))
+    timer_thread.start()
 
     try:
         if dpg.is_dearpygui_running():
@@ -289,6 +293,7 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
         log_message(f"An unexpected error occurred: {e}", level="ERROR")
     finally:
         log_message("--- Process Finished ---")
+        stop_event.set()
         if dpg.is_dearpygui_running():
             if not process_halted and total_chapters_to_process > 0:
                 final_progress, final_chapters, final_percent = (
