@@ -473,17 +473,18 @@ def build_gui():
             dpg.add_spacer(height=15)
             dpg.add_text("Progress:")
             with dpg.group(horizontal=True):
-                dpg.add_progress_bar(
-                    tag="progress_bar",
-                    default_value=0.0,
-                    width=-170,
-                    height=35,
-                    overlay="0/0 (0%)",
-                )
+                with dpg.group():
+                    dpg.add_spacer(height=5)
+                    dpg.add_progress_bar(
+                        tag="progress_bar",
+                        default_value=0.0,
+                        width=-170,
+                        height=35,
+                        overlay="0/0 (0%)",
+                    )
                 with dpg.group():
                     dpg.add_text("Elapsed: 00:00", tag="elapsed_time_text")
                     dpg.add_text("ETA: --:--", tag="eta_time_text")
-                    dpg.add_spacer(height=5)
             dpg.add_spacer(height=5)
 
             with dpg.collapsing_header(label="Logs", default_open=True):
