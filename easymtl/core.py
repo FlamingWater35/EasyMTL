@@ -185,21 +185,24 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
         chunk_content = "".join([data["content"] for data in chunk_data])
         log_message(f"--- Processing Chunk (Size: {len(chunk_items)} chapters) ---")
 
-        chunk_translation_map, response_status = None, None
-        for attempt in range(2):
-            is_retry = attempt > 0
+        chunk_translation_map, response_status, response = None, None, None
+        max_api_retries = 2
+        for attempt in range(max_api_retries):
             response = translate_text_with_gemini(
-                chunk_content, log_message, is_retry=is_retry
+                chunk_content, log_message, is_retry=False
             )
             response_status = response["status"]
-            if response_status in ["SUCCESS", "OUTPUT_TRUNCATED"]:
-                chunk_translation_map = parse_translated_text(response["text"])
+            if response_status != "FAILED":
                 break
-            elif response_status == "TOKEN_LIMIT_EXCEEDED":
-                break
-            elif response_status == "FAILED":
-                log_message(f"API call failed. Retrying...", level="ERROR")
-            time.sleep(1)
+            log_message(
+                f"API call failed. Retrying ({attempt + 1}/{max_api_retries})...",
+                level="ERROR",
+            )
+            if attempt < max_api_retries - 1:
+                time.sleep(2)
+
+        if response_status in ["SUCCESS", "OUTPUT_TRUNCATED"]:
+            chunk_translation_map = parse_translated_text(response["text"])
 
         if chunk_translation_map:
             translation_map.update(chunk_translation_map)
