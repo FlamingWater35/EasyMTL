@@ -200,12 +200,13 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
             response_status = response["status"]
             if response_status != "FAILED":
                 break
+            wait_time = 2 * (attempt + 2)
             log_message(
-                f"API call failed. Retrying ({attempt + 1}/{max_api_retries})...",
-                level="ERROR",
+                f"API call failed. Waiting {wait_time}s before retrying ({attempt + 1}/{max_api_retries})...",
+                level="WARNING",
             )
             if attempt < max_api_retries - 1:
-                time.sleep(2)
+                time.sleep(wait_time)
 
         if response_status in ["SUCCESS", "OUTPUT_TRUNCATED"]:
             chunk_translation_map = parse_translated_text(response["text"])
