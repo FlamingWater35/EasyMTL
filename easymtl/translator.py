@@ -106,10 +106,12 @@ def translate_text_with_gemini(text, logger, is_retry=False):
         return {"status": "FAILED", "text": None}
 
     prompt = f"""Translate the following novel chapters into English.
-It is critical that you preserve the `[CHAPTER_ID::...]` tag at the beginning of each chapter. Do not translate it or remove it.
-If a chapter has a title, enclose the translated title in double asterisks, like this: **Chapter Title**.
-Preserve any placeholder tags like `[IMAGE_PLACEHOLDER_N]` exactly as they appear.
-Keep the content of each chapter separate, preserving the '---' markers.
+Follow these rules precisely:
+1.  Preserve the `[CHAPTER_ID::...]` tag at the beginning of each chapter. Do not translate it or remove it.
+2.  If a chapter has a title, enclose the translated title in double asterisks, like this: **Chapter Title**.
+3.  Crucially, you must preserve the paragraph structure. Each paragraph is separated by a newline. Ensure the translated output maintains these exact newlines. Do not merge paragraphs.
+4.  Preserve any placeholder tags like `[IMAGE_PLACEHOLDER_N]` exactly as they appear.
+5.  Keep the content of each chapter separate, preserving the '---' markers.
 
 ---
 {text}
