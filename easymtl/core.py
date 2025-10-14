@@ -4,7 +4,12 @@ import time
 from ebooklib import epub, ITEM_DOCUMENT
 import dearpygui.dearpygui as dpg
 
-from .config import AVAILABLE_GEMMA_MODELS, TOKEN_LIMIT_PERCENTAGE, DEFAULT_MODEL
+from .config import (
+    AVAILABLE_GEMMA_MODELS,
+    TOKEN_LIMIT_PERCENTAGE,
+    MAX_CHAPTERS_PER_CHUNK,
+    DEFAULT_MODEL,
+)
 from .utils import (
     delete_local_model,
     format_time,
@@ -166,6 +171,7 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
     for chapter_data in chapter_data_list:
         if current_chunk_data and (
             current_chunk_tokens + chapter_data["tokens"] > safe_token_limit
+            or len(current_chunk_data) >= MAX_CHAPTERS_PER_CHUNK
         ):
             chunks.append(current_chunk_data)
             current_chunk_data, current_chunk_tokens = [], 0
@@ -217,21 +223,22 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
                 if data["item"].get_name() not in translated_ids
             ]
             if untranslated_data:
-                if response_status == "OUTPUT_TRUNCATED":
+                log_message(
+                    f"Model response was incomplete. Re-queuing {len(untranslated_data)} missing chapters.",
+                    level="WARNING",
+                )
+                if len(untranslated_data) > 1:
+                    mid_point = len(untranslated_data) // 2
+                    first_half = untranslated_data[:mid_point]
+                    second_half = untranslated_data[mid_point:]
+                    chunks.insert(0, second_half)
+                    chunks.insert(0, first_half)
                     log_message(
-                        "Output truncated by model. Re-queuing missing chapters.",
-                        level="WARNING",
+                        f"Split remainder into two new chunks of size {len(first_half)} and {len(second_half)}."
                     )
                 else:
-                    log_message(
-                        "Model response was incomplete. Re-queuing missing chapters.",
-                        level="WARNING",
-                    )
-                log_message(
-                    f"Re-queuing a new chunk with {len(untranslated_data)} remaining chapters.",
-                    level="INFO",
-                )
-                chunks.insert(0, untranslated_data)
+                    chunks.insert(0, untranslated_data)
+
         elif response_status == "TOKEN_LIMIT_EXCEEDED":
             log_message("Halting translation due to input token limit.", level="ERROR")
             raise InterruptedError("TOKEN_LIMIT_EXCEEDED")
