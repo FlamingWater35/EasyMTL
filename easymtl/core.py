@@ -41,6 +41,24 @@ def _update_elapsed_time_continuously(start_time, stop_event):
             dpg.set_value(
                 "elapsed_time_text", f"Elapsed: {format_time(elapsed_seconds)}"
             )
+
+            current_eta_str = dpg.get_value("eta_time_text")
+            if (
+                current_eta_str
+                and current_eta_str.startswith("ETA: ")
+                and "--" not in current_eta_str
+            ):
+                time_part = current_eta_str.replace("ETA: ", "")
+                try:
+                    minutes, seconds = map(int, time_part.split(":"))
+                    total_seconds = (minutes * 60) + seconds
+                    if total_seconds > 0:
+                        new_total_seconds = total_seconds - 1
+                        dpg.set_value(
+                            "eta_time_text", f"ETA: {format_time(new_total_seconds)}"
+                        )
+                except (ValueError, IndexError):
+                    pass
         time.sleep(1)
 
 
