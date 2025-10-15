@@ -71,6 +71,7 @@ def translate_text_with_gemma(text, logger):
 
         prompt = f"""Translate the following novel chapter into English.
 If the chapter has a title, enclose the translated title in double asterisks, like this: **Chapter Title**.
+If the chapter has a number, preserve it in the title like this: **Chapter 1: The Beginning**.
 Preserve any placeholder tags like `[IMAGE_PLACEHOLDER_N]` exactly as they appear.
 
 ---
