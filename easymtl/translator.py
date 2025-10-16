@@ -155,13 +155,20 @@ Follow these rules precisely:
 
         if finish_reason.name == "MAX_TOKENS":
             logger(
-                "Output truncated by model. Trimming to last complete chapter.",
+                "Output truncated by model. Verifying and trimming to the last complete chapter.",
                 level="WARNING",
             )
-            parts = raw_text.split("---")
-            complete_parts = parts[:-1]
-            final_text_to_parse = "---".join(complete_parts) + "---"
+            id_pattern = re.compile(r"\[CHAPTER_ID::([^]]+)\]")
+            matches = list(id_pattern.finditer(raw_text))
+
+            if len(matches) > 1:
+                last_match_start = matches[-1].start()
+                final_text_to_parse = raw_text[:last_match_start]
+            elif not matches:
+                final_text_to_parse = ""
+
             return {"status": "OUTPUT_TRUNCATED", "text": final_text_to_parse}
+
         elif finish_reason.name == "STOP":
             logger("Translation received successfully.", level="SUCCESS")
             return {"status": "SUCCESS", "text": final_text_to_parse}
