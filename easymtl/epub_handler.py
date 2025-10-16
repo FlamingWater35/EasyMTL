@@ -44,19 +44,23 @@ def create_translated_epub(
 
     book = epub.read_epub(original_path)
 
-    stylesheet_content = """
-    body { font-family: serif; line-height: 1.6; margin: 5px; }
-    h1 { text-align: center; font-weight: bold; page-break-before: always; margin-top: 2em; margin-bottom: 2em; }
-    p { text-align: justify; text-indent: 1.5em; margin-top: 0; margin-bottom: 0; }
-    img { max-width: 100%; height: auto; display: block; margin-left: auto; margin-right: auto; padding-top: 1em; padding-bottom: 1em; }
-    """
-    style_item = epub.EpubItem(
-        uid="style_default",
-        file_name="style/default.css",
-        media_type="text/css",
-        content=stylesheet_content,
-    )
-    book.add_item(style_item)
+    style_item = book.get_item_with_id("style_default")
+    if not style_item:
+        logger("Stylesheet not found, creating a new one.")
+        stylesheet_content = """
+        body { font-family: serif; line-height: 1.6; margin: 5px; }
+        h1 { text-align: center; font-weight: bold; page-break-before: always; margin-top: 2em; margin-bottom: 2em; }
+        p { text-align: justify; text-indent: 1.5em; margin-top: 0; margin-bottom: 0; }
+        img { max-width: 100%; height: auto; display: block; margin-left: auto; margin-right: auto; padding-top: 1em; padding-bottom: 1em; }
+        """
+        style_item = epub.EpubItem(
+            uid="style_default",
+            file_name="style/default.css",
+            media_type="text/css",
+            content=stylesheet_content,
+        )
+        book.add_item(style_item)
+
     image_map = {href: images for href, images in extraction_data}
 
     for item_to_replace in chapters_to_replace:
