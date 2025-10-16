@@ -95,6 +95,13 @@ def create_translated_epub(
                 else:
                     body_content += f"<p>{clean_line}</p>\n"
 
+            if not body_content.strip():
+                logger(
+                    f"Translated content for '{original_href}' is empty. Skipping modification to prevent errors.",
+                    level="WARNING",
+                )
+                continue
+
             html = f"""<?xml version='1.0' encoding='utf-8'?>
 <html xmlns="http://www.w3.org/1999/xhtml"><head><title>{title_text}</title><link rel="stylesheet" type="text/css" href="default.css" /></head><body>{body_content}</body></html>"""
             item_in_new_book.set_content(html.encode("utf-8"))
