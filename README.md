@@ -8,7 +8,7 @@ Translate your e-books effortlessly using powerful cloud and local AI models.
 
 EasyMTL is a tool designed to quickly and accurately translate EPUB files. It preserves the book's structure, including images.
 
-> **Important**: As AI can make mistakes (and Gemini models are prone to censorship), the app features a proofreading tool that is recommended to run in order to maintain high-quality translations. Slight manual editing might be needed. The proofreading tool is optimized to specially target languages using non-English characters. Translating from other languages is not recommended because Gemini typically leaves censored phrases untranslated without any notice, which is complex to detect.
+> **Important**: Slight manual editing might be needed to ensure a complete translation. As AI can make mistakes, this app features a proofreading tool that is recommended to run in order to maintain high-quality translations. The proofreading tool is optimized to specially target languages using non-English characters. Translating from other languages is not recommended because AI models might leave a few untranslated phrases in the book, which is complex to detect.
 
 ## ✨ Features
 
