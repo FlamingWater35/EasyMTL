@@ -12,7 +12,7 @@ EasyMTL is a tool designed to quickly and accurately translate EPUB files. It pr
 
 - **Dual Translation Engines**:
   - **Cloud**: Utilizes powerful Gemini models (for example, Gemini 2.5 Pro) via API for high-quality translations.
-  - **Local**: Can also run translations completely offline using Gemma models (like Gemma 3) on your own hardware.
+  - **Local**: Can also run translations completely offline using models like Gemma 3 and Mistral on your own hardware.
 
 - **Built-in EPUB Tools**:
   - **Cover Page Generator**: A one-click tool to create a properly formatted, full-page cover for your EPUBs using the image from the book's metadata.
@@ -29,7 +29,7 @@ EasyMTL is a tool designed to quickly and accurately translate EPUB files. It pr
     - **Robust Error Handling**: Automatically retries failed API calls and gracefully handles model inconsistencies.
 
   - **Local Model Management**:
-    - **Downloader**: Browse and download optimized GGUF-format Gemma models directly from Hugging Face within the app.
+    - **Downloader**: Browse and download optimized GGUF-format models directly from Hugging Face within the app.
     - **Manager**: Easily switch between different downloaded local models or delete them to save space.
 
   - **EPUB Integrity**:
@@ -61,7 +61,7 @@ EasyMTL is a tool designed to quickly and accurately translate EPUB files. It pr
   </tr>
 </table>
 
-## 🚀 Installation & Setup
+## 🚀 Installation From Source
 
 Follow these steps to get the application running from source. (Note that Linux isn't yet supported despite the mentions)
 
@@ -108,7 +108,7 @@ pip install -r requirements.txt
     2. Go to `Settings > Set API Key`.
     3. Paste your Google AI Studio API key and click "Save".
 
-- **For Local Models (Gemma)**:
+- **For Local Models**:
   - **Note that these steps may not be necessary:**
     1. Make sure you have a [Hugging Face](https://huggingface.co/) account.
     2. Visit the page of a gated model you wish to download (e.g., [Gemma 2 on Hugging Face](https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/)) and accept the terms.
@@ -130,7 +130,7 @@ pip install -r requirements.txt
 
 2. **Select a Model**:
     - For **cloud translation**, go to `Settings > Select Model` to choose a Gemini model.
-    - For **local translation**, go to `Local Models > Manage Models` to download or select a Gemma model.
+    - For **local translation**, go to `Local Models > Manage Models` to download or select a model for local use.
 3. **Select EPUB**: Click "Browse..." to choose the EPUB file you want to translate.
 4. **Choose Chapters**: Set the start and end chapters for the translation.
 5. **Start**: Click "Start Translation" and grab some tea while the operation is running.
