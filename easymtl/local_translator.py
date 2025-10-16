@@ -45,7 +45,7 @@ def download_model_from_hub(repo_id, filename, logger):
         return False
 
 
-def translate_text_with_gemma(text, logger):
+def translate_text_with_local_model(text, logger):
     global _LOCAL_MODEL_INSTANCE, _LOADED_MODEL_PATH
 
     model_filename = os.getenv("GEMINI_MODEL_NAME")
@@ -69,7 +69,7 @@ def translate_text_with_gemma(text, logger):
 
         llm = _LOCAL_MODEL_INSTANCE
 
-        prompt = f"""Translate the following novel chapter into English.
+        base_prompt = f"""Translate the following novel chapter into English.
 If the chapter has a title, enclose the translated title in double asterisks, like this: **Chapter Title**.
 If the chapter has a number, preserve it in the title like this: **Chapter 1: The Beginning**.
 Preserve any placeholder tags like `[IMAGE_PLACEHOLDER_N]` exactly as they appear.
@@ -78,16 +78,25 @@ Preserve any placeholder tags like `[IMAGE_PLACEHOLDER_N]` exactly as they appea
 {text}
 ---
 """
-        chat_prompt = (
-            f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
-        )
+        model_name_lower = model_filename.lower()
+        if "mistral" in model_name_lower:
+            chat_prompt = f"[INST] {base_prompt} [/INST]"
+            logger("Using Mistral prompt format.")
+        elif "qwen" in model_name_lower:
+            chat_prompt = f"<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n{base_prompt}<|im_end|>\n<|im_start|>assistant\n"
+            logger("Using Qwen prompt format.")
+        else:
+            chat_prompt = (
+                f"<start_of_turn>user\n{base_prompt}<end_of_turn>\n<start_of_turn>model\n"
+            )
+            logger("Using Gemma prompt format.")
 
         logger("Generating translation with local model... (This may be slow)")
 
         response = llm(
             chat_prompt,
             max_tokens=-1,
-            stop=["<end_of_turn>", "user\n"],
+            stop=["<end_of_turn>", "user\n", "[/INST]", "<|im_end|>"],
             temperature=1.0,
             top_k=64,
             top_p=0.95,

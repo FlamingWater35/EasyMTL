@@ -6,7 +6,7 @@ pywin32
 pywinstyles
 black
 llama-cpp-python
-huggingface-hub
+huggingface_hub[hf_xet]
 pyinstaller
 colorama
 requests

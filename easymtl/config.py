@@ -2,7 +2,7 @@ APP_VERSION = "1.0.2"
 GITHUB_REPO = "FlamingWater35/EasyMTL"
 TOKEN_LIMIT_PERCENTAGE = 0.60
 MAX_CHAPTERS_PER_CHUNK = 20
-LOCAL_MODEL_CONTEXT_SIZE = 8192
+LOCAL_MODEL_CONTEXT_SIZE = 32768
 DEFAULT_MODEL = "models/gemini-2.5-flash"
 AVAILABLE_GEMMA_MODELS = {
     "Gemma 2 - 2B (bartowski)": {
@@ -16,5 +16,13 @@ AVAILABLE_GEMMA_MODELS = {
     "Gemma 3 - 12B (unsloth)": {
         "repo": "unsloth/gemma-3-12b-it-GGUF",
         "file": "gemma-3-12b-it-Q4_K_M.gguf",
+    },
+    "Mistral - 7B Instruct (MaziyarPanahi)": {
+        "repo": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
+        "file": "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf",
+    },
+    "Qwen 3 - 8B (MaziyarPanahi)": {
+        "repo": "MaziyarPanahi/Qwen3-8B-GGUF",
+        "file": "Qwen3-8B.Q4_K_M.gguf",
     },
 }

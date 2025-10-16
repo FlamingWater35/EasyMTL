@@ -31,7 +31,7 @@ from .translator import (
 )
 from .local_translator import (
     download_model_from_hub,
-    translate_text_with_gemma,
+    translate_text_with_local_model,
 )
 
 
@@ -89,7 +89,9 @@ def _process_with_local_model(chapters_to_translate, start_time, log_message):
 
     for i, chapter_data in enumerate(chapter_data_list):
         log_message(f"--- Processing Chapter {i + 1}/{total_chapters_to_process} ---")
-        response = translate_text_with_gemma(chapter_data["content"], log_message)
+        response = translate_text_with_local_model(
+            chapter_data["content"], log_message
+        )
 
         if response["status"] == "SUCCESS" and response["text"]:
             translated_text = response["text"].strip()
