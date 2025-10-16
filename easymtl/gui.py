@@ -15,6 +15,7 @@ from .utils import (
     scan_for_local_models,
 )
 from .core import (
+    request_translation_stop,
     start_cover_creation_thread,
     start_delete_thread,
     start_download_thread,
@@ -538,12 +539,19 @@ def build_gui():
                     enabled=False,
                 )
             dpg.add_spacer(height=10)
-            dpg.add_button(
-                label="Start Translation",
-                tag="start_button",
-                callback=start_translation_thread,
-                enabled=False,
-            )
+            with dpg.group(horizontal=True):
+                dpg.add_button(
+                    label="Start Translation",
+                    tag="start_button",
+                    callback=start_translation_thread,
+                    enabled=False,
+                )
+                dpg.add_button(
+                    label="Stop Translation",
+                    tag="stop_button",
+                    callback=request_translation_stop,
+                    show=False,
+                )
             dpg.add_spacer(height=15)
             dpg.add_text("Progress:")
             with dpg.group(horizontal=True):

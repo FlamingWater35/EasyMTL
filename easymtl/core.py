@@ -34,6 +34,8 @@ from .local_translator import (
     translate_text_with_local_model,
 )
 
+_TRANSLATION_STOP_EVENT = threading.Event()
+
 
 def is_local_model(model_name):
     return model_name and model_name.endswith(".gguf")
@@ -67,7 +69,9 @@ def _update_elapsed_time_continuously(start_time, stop_event):
         time.sleep(1)
 
 
-def _process_with_local_model(chapters_to_translate, start_time, log_message):
+def _process_with_local_model(
+    chapters_to_translate, start_time, log_message, stop_event
+):
     total_chapters_to_process = len(chapters_to_translate)
     chapters_processed = 0
     translation_map, all_extraction_data = {}, []
@@ -88,10 +92,12 @@ def _process_with_local_model(chapters_to_translate, start_time, log_message):
     log_message("Pre-processing complete.", level="SUCCESS")
 
     for i, chapter_data in enumerate(chapter_data_list):
+        if stop_event.is_set():
+            log_message("Translation stopped by user.", level="WARNING")
+            break
+
         log_message(f"--- Processing Chapter {i + 1}/{total_chapters_to_process} ---")
-        response = translate_text_with_local_model(
-            chapter_data["content"], log_message
-        )
+        response = translate_text_with_local_model(chapter_data["content"], log_message)
 
         if response["status"] == "SUCCESS" and response["text"]:
             translated_text = response["text"].strip()
@@ -133,7 +139,9 @@ def _process_with_local_model(chapters_to_translate, start_time, log_message):
     return translation_map, all_extraction_data, chapters_processed
 
 
-def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
+def _process_with_cloud_model(
+    chapters_to_translate, start_time, log_message, stop_event
+):
     total_chapters_to_process = len(chapters_to_translate)
     max_output_tokens = get_model_output_limit(log_message)
     safe_token_limit = int(max_output_tokens * TOKEN_LIMIT_PERCENTAGE)
@@ -142,6 +150,10 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
     log_message("Pre-processing chapters to count tokens...")
     chapter_data_list = []
     for i, item in enumerate(chapters_to_translate):
+        if stop_event.is_set():
+            log_message("Translation stopped by user.", level="WARNING")
+            return {}, [], 0
+
         item_content, item_extraction_data = extract_content_from_chapters(
             [item], log_message, verbose=False
         )
@@ -188,6 +200,10 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
     chapters_processed = 0
 
     while chunks:
+        if stop_event.is_set():
+            log_message("Translation stopped by user.", level="WARNING")
+            break
+
         chunk_data = chunks.pop(0)
         chunk_items = [data["item"] for data in chunk_data]
         chunk_content = "".join([data["content"] for data in chunk_data])
@@ -289,15 +305,15 @@ def _process_with_cloud_model(chapters_to_translate, start_time, log_message):
     return translation_map, all_extraction_data, chapters_processed
 
 
-def run_translation_process(epub_path, start_chapter, end_chapter):
+def run_translation_process(epub_path, start_chapter, end_chapter, stop_event):
     start_time = time.time()
     chapters_processed = 0
     total_chapters_to_process = 0
     process_halted = False
 
-    stop_event = threading.Event()
+    timer_stop_event = threading.Event()
     timer_thread = threading.Thread(
-        target=_update_elapsed_time_continuously, args=(start_time, stop_event)
+        target=_update_elapsed_time_continuously, args=(start_time, timer_stop_event)
     )
     timer_thread.start()
 
@@ -323,23 +339,26 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
         if is_local_model(model_name):
             translation_map, all_extraction_data, chapters_processed = (
                 _process_with_local_model(
-                    chapters_to_translate_items, start_time, log_message
+                    chapters_to_translate_items, start_time, log_message, stop_event
                 )
             )
         else:
             try:
                 translation_map, all_extraction_data, chapters_processed = (
                     _process_with_cloud_model(
-                        chapters_to_translate_items, start_time, log_message
+                        chapters_to_translate_items, start_time, log_message, stop_event
                     )
                 )
             except InterruptedError:
                 process_halted = True
 
-        log_message(
-            "--- All chapters/chunks processed. Building the final EPUB file. ---"
-        )
-        if translation_map:
+        if stop_event.is_set():
+            process_halted = True
+            log_message(
+                "Process was stopped by user. No EPUB file will be created.",
+                level="WARNING",
+            )
+        elif translation_map:
             create_translated_epub(
                 epub_path,
                 translation_map,
@@ -358,7 +377,7 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
         log_message(f"An unexpected error occurred: {e}", level="ERROR")
     finally:
         log_message("--- Process Finished ---")
-        stop_event.set()
+        timer_stop_event.set()
         if dpg.is_dearpygui_running():
             if not process_halted and total_chapters_to_process > 0:
                 final_progress, final_chapters, final_percent = (
@@ -382,6 +401,9 @@ def run_translation_process(epub_path, start_chapter, end_chapter):
             dpg.configure_item("progress_bar", overlay=final_overlay)
             dpg.set_value("eta_time_text", "ETA: --:--")
             dpg.configure_item("start_button", enabled=True)
+            dpg.configure_item(
+                "stop_button", show=False, enabled=False, label="Stop Translation"
+            )
 
 
 def start_translation_thread():
@@ -412,10 +434,25 @@ def start_translation_thread():
         return
 
     dpg.configure_item("start_button", enabled=False)
+    dpg.configure_item("stop_button", show=True, enabled=True)
+
+    _TRANSLATION_STOP_EVENT.clear()
+
     thread = threading.Thread(
-        target=run_translation_process, args=(epub_path, start_chapter, end_chapter)
+        target=run_translation_process,
+        args=(epub_path, start_chapter, end_chapter, _TRANSLATION_STOP_EVENT),
     )
     thread.start()
+
+
+def request_translation_stop():
+    if not _TRANSLATION_STOP_EVENT.is_set():
+        log_message(
+            "Stop request received. Finishing current chapter/chunk...", level="INFO"
+        )
+        _TRANSLATION_STOP_EVENT.set()
+        if dpg.is_dearpygui_running():
+            dpg.configure_item("stop_button", enabled=False, label="Stopping...")
 
 
 def fetch_models_from_api():

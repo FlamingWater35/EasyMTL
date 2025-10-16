@@ -86,9 +86,7 @@ Preserve any placeholder tags like `[IMAGE_PLACEHOLDER_N]` exactly as they appea
             chat_prompt = f"<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n{base_prompt}<|im_end|>\n<|im_start|>assistant\n"
             logger("Using Qwen prompt format.")
         else:
-            chat_prompt = (
-                f"<start_of_turn>user\n{base_prompt}<end_of_turn>\n<start_of_turn>model\n"
-            )
+            chat_prompt = f"<start_of_turn>user\n{base_prompt}<end_of_turn>\n<start_of_turn>model\n"
             logger("Using Gemma prompt format.")
 
         logger("Generating translation with local model... (This may be slow)")
