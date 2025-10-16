@@ -3,7 +3,6 @@ from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
 from huggingface_hub.utils import GatedRepoError, HfHubHTTPError
 from .utils import get_models_dir
-from .config import LOCAL_MODEL_CONTEXT_SIZE
 
 _LOCAL_MODEL_INSTANCE = None
 _LOADED_MODEL_PATH = None
@@ -58,9 +57,14 @@ def translate_text_with_local_model(text, logger):
     try:
         if _LOADED_MODEL_PATH != model_path:
             logger(f"Loading local model: {model_filename}...")
+            temp_llm = Llama(model_path=model_path, n_ctx=0, verbose=False)
+            model_ctx = temp_llm.context_params.n_ctx
+            del temp_llm
+            logger(f"Model context size detected: {model_ctx} tokens.")
+
             _LOCAL_MODEL_INSTANCE = Llama(
                 model_path=model_path,
-                n_ctx=LOCAL_MODEL_CONTEXT_SIZE,
+                n_ctx=model_ctx,
                 n_gpu_layers=-1,
                 verbose=False,
             )
