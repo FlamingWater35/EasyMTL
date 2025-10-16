@@ -1,6 +1,8 @@
 import os
+import re
 import threading
 import time
+from bs4 import BeautifulSoup
 from ebooklib import epub, ITEM_DOCUMENT
 import dearpygui.dearpygui as dpg
 
@@ -15,6 +17,7 @@ from .utils import (
     format_time,
     get_reverse_model_map,
     log_message,
+    open_text_in_editor,
     scan_for_local_models,
 )
 from .epub_handler import (
@@ -453,6 +456,93 @@ def request_translation_stop():
         _TRANSLATION_STOP_EVENT.set()
         if dpg.is_dearpygui_running():
             dpg.configure_item("stop_button", enabled=False, label="Stopping...")
+
+
+def run_proofreading_tool(epub_path):
+    try:
+        if dpg.is_dearpygui_running():
+            dpg.configure_item("proofread_tool_button", enabled=False)
+        log_message("--- Starting Proofreading Tool ---")
+        book = epub.read_epub(epub_path)
+        chapters = list(book.get_items_of_type(ITEM_DOCUMENT))
+
+        non_english_errors = []
+        end_mark_errors = []
+
+        log_message(f"Scanning {len(chapters)} chapters...")
+        non_english_pattern = re.compile(r"[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]+")
+        valid_end_marks = {".", "?", "!", '"', "'", "”", "’", ")", "]", "*"}
+
+        for item in chapters:
+            soup = BeautifulSoup(item.get_content(), "html.parser")
+            title_tag = soup.find("h1") or soup.find("title")
+            chapter_title = (
+                title_tag.get_text().strip() if title_tag else item.get_name()
+            )
+
+            paragraphs = soup.find_all("p")
+            for i, p in enumerate(paragraphs):
+                p_text = p.get_text().strip()
+                if not p_text:
+                    continue
+
+                if non_english_pattern.search(p_text):
+                    non_english_errors.append(
+                        {"chapter": chapter_title, "p_num": i + 1, "text": p_text}
+                    )
+
+                if p_text[-1] not in valid_end_marks:
+                    end_mark_errors.append(
+                        {"chapter": chapter_title, "p_num": i + 1, "text": p_text}
+                    )
+
+        log_message("Scan complete. Generating reports...")
+
+        if non_english_errors:
+            log_message(
+                f"Found {len(non_english_errors)} paragraphs with non-English characters.",
+                level="WARNING",
+            )
+            report_content = "Non-English Character Report\n" + "=" * 30 + "\n\n"
+            for error in non_english_errors:
+                report_content += f"--------------------\n"
+                report_content += f"Chapter: {error['chapter']}\n"
+                report_content += f"Paragraph: {error['p_num']}\n\n"
+                report_content += f"{error['text']}\n"
+                report_content += f"--------------------\n\n"
+            open_text_in_editor(report_content, "non_english", log_message)
+        else:
+            log_message("No non-English characters found.", level="SUCCESS")
+
+        if end_mark_errors:
+            log_message(
+                f"Found {len(end_mark_errors)} paragraphs with missing end marks.",
+                level="WARNING",
+            )
+            report_content = "Missing End Mark Report\n" + "=" * 30 + "\n\n"
+            for error in end_mark_errors:
+                report_content += f"--------------------\n"
+                report_content += f"Chapter: {error['chapter']}\n"
+                report_content += f"Paragraph: {error['p_num']}\n\n"
+                report_content += f"{error['text']}\n"
+                report_content += f"--------------------\n\n"
+            open_text_in_editor(report_content, "end_marks", log_message)
+        else:
+            log_message("No missing end marks found.", level="SUCCESS")
+
+    except Exception as e:
+        log_message(
+            f"An unexpected error occurred during proofreading: {e}", level="ERROR"
+        )
+    finally:
+        log_message("--- Proofreading Finished ---")
+        if dpg.is_dearpygui_running():
+            dpg.configure_item("proofread_tool_button", enabled=True)
+
+
+def start_proofreading_thread(epub_path):
+    thread = threading.Thread(target=run_proofreading_tool, args=(epub_path,))
+    thread.start()
 
 
 def fetch_models_from_api():

@@ -1,5 +1,8 @@
 import os
+import platform
+import subprocess
 import sys
+import tempfile
 import dearpygui.dearpygui as dpg
 from platformdirs import user_data_dir
 
@@ -85,3 +88,27 @@ def log_message(message, level="INFO"):
     if dpg.is_dearpygui_running():
         dpg.add_text(message, parent="log_window_content", color=log_color, wrap=0)
         dpg.set_y_scroll("log_window", -1.0)
+
+
+def open_text_in_editor(content, filename_suffix, logger):
+    try:
+        temp_dir = tempfile.gettempdir()
+        file_path = os.path.join(temp_dir, f"easymtl_report_{filename_suffix}.txt")
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        logger(f"Report saved to {file_path}. Opening in default text editor...")
+
+        system = platform.system()
+        if system == "Windows":
+            os.startfile(file_path)
+        elif system == "Darwin":
+            subprocess.call(("open", file_path))
+        else:
+            subprocess.call(("xdg-open", file_path))
+
+        return True
+    except Exception as e:
+        logger(f"Could not open text editor: {e}", level="ERROR")
+        return False

@@ -20,6 +20,7 @@ from .core import (
     start_delete_thread,
     start_download_thread,
     start_model_fetch_thread,
+    start_proofreading_thread,
     start_translation_thread,
 )
 
@@ -81,6 +82,7 @@ def setup_themes():
     dpg.bind_item_theme("main_window", window_theme)
     dpg.bind_item_theme("api_key_modal_content", window_theme)
     dpg.bind_item_theme("cover_tool_modal_content", window_theme)
+    dpg.bind_item_theme("proofread_tool_modal_content", window_theme)
     dpg.bind_item_theme("model_select_modal_content", window_theme)
     dpg.bind_item_theme("local_models_modal_content", window_theme)
     dpg.bind_item_theme("about_modal_content", window_theme)
@@ -135,6 +137,12 @@ def select_cover_tool_file_callback(sender, app_data):
         start_cover_creation_thread(filepath)
 
 
+def select_proofreading_file_callback(sender, app_data):
+    filepath = app_data.get("file_path_name")
+    if filepath:
+        start_proofreading_thread(filepath)
+
+
 def open_model_selector_callback():
     if not dpg.get_item_configuration("model_combo")["items"]:
         start_model_fetch_thread()
@@ -177,16 +185,14 @@ def select_local_model_callback():
     selected_display_name = dpg.get_value("local_model_listbox")
     if not selected_display_name:
         return
-
-    filename_to_use = None
-    for name, info in AVAILABLE_GEMMA_MODELS.items():
-        if name == selected_display_name:
-            filename_to_use = info["file"]
-            break
-
-    if filename_to_use is None:
-        filename_to_use = selected_display_name
-
+    filename_to_use = next(
+        (
+            info["file"]
+            for name, info in AVAILABLE_GEMMA_MODELS.items()
+            if name == selected_display_name
+        ),
+        selected_display_name,
+    )
     os.environ["GEMINI_MODEL_NAME"] = filename_to_use
     log_message(
         f"Local model for this session set to: {selected_display_name}", level="SUCCESS"
@@ -199,16 +205,14 @@ def delete_selected_model_callback():
     if not selected_display_name:
         log_message("No model selected to delete.", level="WARNING")
         return
-
-    filename_to_delete = None
-    for name, info in AVAILABLE_GEMMA_MODELS.items():
-        if name == selected_display_name:
-            filename_to_delete = info["file"]
-            break
-
-    if filename_to_delete is None:
-        filename_to_delete = selected_display_name
-
+    filename_to_delete = next(
+        (
+            info["file"]
+            for name, info in AVAILABLE_GEMMA_MODELS.items()
+            if name == selected_display_name
+        ),
+        selected_display_name,
+    )
     log_message(
         f"Attempting to delete {selected_display_name} ({filename_to_delete})..."
     )
@@ -253,25 +257,25 @@ def build_gui():
         ]
     )
 
-    api_modal_width = dpg.get_viewport_width() / 2
-    api_modal_height = dpg.get_viewport_height() / 3
+    modal_width, modal_height = (
+        dpg.get_viewport_width() / 2,
+        dpg.get_viewport_height() / 3,
+    )
     with dpg.window(
         label="API Key Setup",
         modal=True,
         show=False,
         tag="api_key_modal",
         no_close=True,
-        width=api_modal_width,
-        height=api_modal_height,
+        width=modal_width,
+        height=modal_height,
         pos=[
-            (dpg.get_viewport_width() / 2) - (api_modal_width / 2),
-            (dpg.get_viewport_height() / 2) - (api_modal_height / 2),
+            (dpg.get_viewport_width() / 2) - (modal_width / 2),
+            (dpg.get_viewport_height() / 2) - (modal_height / 2),
         ],
     ):
         with dpg.child_window(
-            tag="api_key_modal_content",
-            autosize_x=True,
-            autosize_y=True,
+            tag="api_key_modal_content", autosize_x=True, autosize_y=True
         ):
             dpg.add_text("Please paste your Google Gemini API key below.", wrap=0)
             dpg.add_text(
@@ -299,17 +303,15 @@ def build_gui():
         show=False,
         no_collapse=True,
         tag="cover_tool_modal",
-        width=api_modal_width,
-        height=api_modal_height,
+        width=modal_width,
+        height=modal_height,
         pos=[
-            (dpg.get_viewport_width() / 2) - (api_modal_width / 2),
-            (dpg.get_viewport_height() / 2) - (api_modal_height / 2),
+            (dpg.get_viewport_width() / 2) - (modal_width / 2),
+            (dpg.get_viewport_height() / 2) - (modal_height / 2),
         ],
     ):
         with dpg.child_window(
-            tag="cover_tool_modal_content",
-            autosize_x=True,
-            autosize_y=True,
+            tag="cover_tool_modal_content", autosize_x=True, autosize_y=True
         ):
             dpg.add_text(
                 "This tool will create a copy of an EPUB file and replace its first page with a proper, centered cover image.",
@@ -318,19 +320,74 @@ def build_gui():
             dpg.add_spacer(height=10)
             dpg.add_text("It finds the cover image from the book's metadata.", wrap=0)
             dpg.add_spacer(height=20)
-            with dpg.group(horizontal=True):
-                dpg.add_button(
-                    label="Select EPUB File",
-                    tag="cover_tool_button",
-                    width=-1,
-                    callback=lambda: dpg.show_item("cover_tool_file_dialog"),
-                )
+            dpg.add_button(
+                label="Select EPUB File",
+                tag="cover_tool_button",
+                width=-1,
+                callback=lambda: dpg.show_item("cover_tool_file_dialog"),
+            )
 
     with dpg.file_dialog(
         directory_selector=False,
         show=False,
         callback=select_cover_tool_file_callback,
         tag="cover_tool_file_dialog",
+        width=dpg.get_viewport_width() / 1.3,
+        height=dpg.get_viewport_height() / 1.5,
+        modal=True,
+    ):
+        dpg.add_file_extension(".epub", color=(0, 255, 0, 255))
+
+    proofread_modal_width = dpg.get_viewport_width() / 1.6
+    proofread_modal_height = dpg.get_viewport_height() / 2
+    with dpg.window(
+        label="Proofreading Tool",
+        show=False,
+        no_collapse=True,
+        tag="proofread_tool_modal",
+        width=proofread_modal_width,
+        height=proofread_modal_height,
+        pos=[
+            (dpg.get_viewport_width() / 2) - (proofread_modal_width / 2),
+            (dpg.get_viewport_height() / 2) - (proofread_modal_height / 2),
+        ],
+    ):
+        with dpg.child_window(
+            tag="proofread_tool_modal_content",
+            autosize_x=True,
+            autosize_y=True,
+        ):
+            dpg.add_text(
+                "This tool helps find common errors in translated EPUB files.", wrap=0
+            )
+            dpg.add_spacer(height=10)
+            dpg.add_text("It will run two checks:", wrap=0)
+            dpg.add_text(
+                "Finds paragraphs with non-English (e.g., Asian) characters.",
+                bullet=True,
+                wrap=0,
+            )
+            dpg.add_text(
+                "Finds paragraphs that don't end with punctuation.", bullet=True, wrap=0
+            )
+            dpg.add_spacer(height=5)
+            dpg.add_text(
+                "If errors are found, a report will be opened in your default text editor, showing the exact chapter and paragraph number for each issue.",
+                wrap=0,
+            )
+            dpg.add_spacer(height=20)
+            dpg.add_button(
+                label="Select EPUB to Proofread",
+                tag="proofread_tool_button",
+                width=-1,
+                callback=lambda: dpg.show_item("proofread_tool_file_dialog"),
+            )
+
+    with dpg.file_dialog(
+        directory_selector=False,
+        show=False,
+        callback=select_proofreading_file_callback,
+        tag="proofread_tool_file_dialog",
         width=dpg.get_viewport_width() / 1.3,
         height=dpg.get_viewport_height() / 1.5,
         modal=True,
@@ -352,9 +409,7 @@ def build_gui():
         ],
     ):
         with dpg.child_window(
-            tag="model_select_modal_content",
-            autosize_x=True,
-            autosize_y=True,
+            tag="model_select_modal_content", autosize_x=True, autosize_y=True
         ):
             dpg.add_text("Select the Gemini model to use for translation.", wrap=0)
             dpg.add_text("This setting will only apply to the current session.", wrap=0)
@@ -380,9 +435,7 @@ def build_gui():
         ],
     ):
         with dpg.child_window(
-            tag="local_models_modal_content",
-            autosize_x=True,
-            autosize_y=True,
+            tag="local_models_modal_content", autosize_x=True, autosize_y=True
         ):
             dpg.add_text("Download and select local Gemma models (GGUF).", wrap=0)
             dpg.add_text(
@@ -446,9 +499,7 @@ def build_gui():
         ],
     ):
         with dpg.child_window(
-            tag="about_modal_content",
-            autosize_x=True,
-            autosize_y=True,
+            tag="about_modal_content", autosize_x=True, autosize_y=True
         ):
             dpg.add_text(f"Version: {APP_VERSION}")
             dpg.add_separator()
@@ -498,14 +549,16 @@ def build_gui():
                     label="Create Cover Page",
                     callback=lambda: dpg.configure_item("cover_tool_modal", show=True),
                 )
+                dpg.add_menu_item(
+                    label="Proofread EPUB",
+                    callback=lambda: dpg.configure_item(
+                        "proofread_tool_modal", show=True
+                    ),
+                )
             with dpg.menu(label="Help"):
                 dpg.add_menu_item(label="About", callback=open_about_callback)
 
-        with dpg.child_window(
-            tag="main_window",
-            autosize_x=True,
-            auto_resize_y=True,
-        ):
+        with dpg.child_window(tag="main_window", autosize_x=True, auto_resize_y=True):
             dpg.add_text("", tag="app_state_filepath", show=False)
             dpg.add_input_int(
                 tag="app_state_total_chapters", show=False, default_value=0
