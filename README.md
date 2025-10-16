@@ -8,6 +8,8 @@ Translate your e-books effortlessly using powerful cloud and local AI models.
 
 EasyMTL is a tool designed to quickly and accurately translate EPUB files. It preserves the book's structure, including images.
 
+> **Important**: As AI can make mistakes (and Gemini models are prone to censorship), the app features a proofreading tool that is recommended to run in order to maintain high-quality translations. Slight manual editing might be needed. The proofreading tool is optimized to specially target languages using non-English characters. Translating from other languages is not recommended because Gemini typically leaves censored phrases untranslated without any notice, which is hard to detect.
+
 ## ✨ Features
 
 - **Dual Translation Engines**:
@@ -16,6 +18,7 @@ EasyMTL is a tool designed to quickly and accurately translate EPUB files. It pr
 
 - **Built-in EPUB Tools**:
   - **Cover Page Generator**: A one-click tool to create a properly formatted, full-page cover for your EPUBs using the image from the book's metadata.
+  - **Proofreading Tool**: A quick tool to find all non-English characters and missing end marks, which then opens a file with detected issues and their locations for easy manual editing.
 
 - **User-Friendly GUI**:
   - **Intuitive Interface**: A clean and simple interface built with DearPyGUI.
@@ -133,7 +136,7 @@ pip install -r requirements.txt
     - For **local translation**, go to `Local Models > Manage Models` to download or select a model for local use.
 3. **Select EPUB**: Click "Browse..." to choose the EPUB file you want to translate.
 4. **Choose Chapters**: Set the start and end chapters for the translation.
-5. **Start**: Click "Start Translation" and grab some tea while the operation is running.
+5. **Start**: Click "Start Translation" and enjoy some tea while the operation is running.
 
 The translated EPUB file will be saved in the same directory as the original, with `_translated` appended to its name.
 
