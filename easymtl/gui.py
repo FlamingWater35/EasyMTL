@@ -403,7 +403,7 @@ def build_gui():
         dpg.add_file_extension(".epub", color=(0, 255, 0, 255))
 
     fix_styles_modal_width = dpg.get_viewport_width() / 2
-    fix_styles_modal_height = dpg.get_viewport_height() / 3
+    fix_styles_modal_height = dpg.get_viewport_height() / 2.7
     with dpg.window(
         label="Stylesheet Fixer Tool",
         show=False,
