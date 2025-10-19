@@ -106,8 +106,19 @@ def create_translated_epub(
                 )
                 continue
 
+            chapter_dir = os.path.dirname(item_in_new_book.get_name())
+            style_path_relative = os.path.relpath(
+                style_item.get_name(), chapter_dir
+            ).replace("\\", "/")
+
             html = f"""<?xml version='1.0' encoding='utf-8'?>
-<html xmlns="http://www.w3.org/1999/xhtml"><head><title>{title_text}</title><link rel="stylesheet" type="text/css" href="default.css" /></head><body>{body_content}</body></html>"""
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>{title_text}</title>
+    <link rel="stylesheet" type="text/css" href="{style_path_relative}" />
+</head>
+<body>{body_content}</body>
+</html>"""
             item_in_new_book.set_content(html.encode("utf-8"))
             item_in_new_book.add_item(style_item)
 

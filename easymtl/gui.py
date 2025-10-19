@@ -21,6 +21,7 @@ from .core import (
     start_download_thread,
     start_model_fetch_thread,
     start_proofreading_thread,
+    start_stylesheet_fix_thread,
     start_translation_thread,
 )
 
@@ -83,6 +84,7 @@ def setup_themes():
     dpg.bind_item_theme("api_key_modal_content", window_theme)
     dpg.bind_item_theme("cover_tool_modal_content", window_theme)
     dpg.bind_item_theme("proofread_tool_modal_content", window_theme)
+    dpg.bind_item_theme("fix_styles_modal_content", window_theme)
     dpg.bind_item_theme("model_select_modal_content", window_theme)
     dpg.bind_item_theme("local_models_modal_content", window_theme)
     dpg.bind_item_theme("about_modal_content", window_theme)
@@ -141,6 +143,12 @@ def select_proofreading_file_callback(sender, app_data):
     filepath = app_data.get("file_path_name")
     if filepath:
         start_proofreading_thread(filepath)
+
+
+def select_fix_styles_file_callback(sender, app_data):
+    filepath = app_data.get("file_path_name")
+    if filepath:
+        start_stylesheet_fix_thread(filepath)
 
 
 def open_model_selector_callback():
@@ -394,6 +402,54 @@ def build_gui():
     ):
         dpg.add_file_extension(".epub", color=(0, 255, 0, 255))
 
+    fix_styles_modal_width = dpg.get_viewport_width() / 2
+    fix_styles_modal_height = dpg.get_viewport_height() / 3
+    with dpg.window(
+        label="Stylesheet Fixer Tool",
+        show=False,
+        no_collapse=True,
+        tag="fix_styles_modal",
+        width=fix_styles_modal_width,
+        height=fix_styles_modal_height,
+        pos=[
+            (dpg.get_viewport_width() / 2) - (fix_styles_modal_width / 2),
+            (dpg.get_viewport_height() / 2) - (fix_styles_modal_height / 2),
+        ],
+    ):
+        with dpg.child_window(
+            tag="fix_styles_modal_content", autosize_x=True, autosize_y=True
+        ):
+            dpg.add_text(
+                "This tool fixes translated EPUBs where the chapter text is not styled.",
+                wrap=0,
+            )
+            dpg.add_spacer(height=10)
+            dpg.add_text(
+                "It scans all chapters and injects a missing link to the 'default.css' stylesheet.",
+                wrap=0,
+            )
+            dpg.add_text(
+                "A new file with '_fixed' in the name will be created.", wrap=0
+            )
+            dpg.add_spacer(height=20)
+            dpg.add_button(
+                label="Select EPUB to Fix",
+                tag="fix_styles_button",
+                width=-1,
+                callback=lambda: dpg.show_item("fix_styles_file_dialog"),
+            )
+
+    with dpg.file_dialog(
+        directory_selector=False,
+        show=False,
+        callback=select_fix_styles_file_callback,
+        tag="fix_styles_file_dialog",
+        width=dpg.get_viewport_width() / 1.3,
+        height=dpg.get_viewport_height() / 1.5,
+        modal=True,
+    ):
+        dpg.add_file_extension(".epub", color=(0, 255, 0, 255))
+
     model_select_modal_width = dpg.get_viewport_width() / 2
     model_select_modal_height = dpg.get_viewport_height() / 2.9
     with dpg.window(
@@ -549,13 +605,19 @@ def build_gui():
                     label="Create Cover Page",
                     callback=lambda: dpg.configure_item("cover_tool_modal", show=True),
                 )
+                dpg.add_separator()
                 dpg.add_menu_item(
                     label="Proofread EPUB",
                     callback=lambda: dpg.configure_item(
                         "proofread_tool_modal", show=True
                     ),
                 )
-            with dpg.menu(label="Help"):
+            with dpg.menu(label="Fixes"):
+                dpg.add_menu_item(
+                    label="Fix Stylesheet Links",
+                    callback=lambda: dpg.configure_item("fix_styles_modal", show=True),
+                )
+            with dpg.menu(label="Info"):
                 dpg.add_menu_item(label="About", callback=open_about_callback)
 
         with dpg.child_window(tag="main_window", autosize_x=True, auto_resize_y=True):

@@ -545,6 +545,85 @@ def start_proofreading_thread(epub_path):
     thread.start()
 
 
+def run_stylesheet_fix_process(epub_path):
+    try:
+        if dpg.is_dearpygui_running():
+            dpg.configure_item("fix_styles_button", enabled=False)
+        log_message("--- Starting Stylesheet Fixer Tool ---")
+        book = epub.read_epub(epub_path)
+
+        style_item = book.get_item_with_id("style_default")
+        if not style_item:
+            log_message(
+                "The 'style/default.css' file is missing from this EPUB. Cannot perform fix.",
+                level="ERROR",
+            )
+            return
+
+        chapters = list(book.get_items_of_type(ITEM_DOCUMENT))
+        fixed_count = 0
+        log_message(
+            f"Scanning {len(chapters)} chapter files for missing stylesheet links..."
+        )
+
+        for item in chapters:
+            soup = BeautifulSoup(item.get_content(), "xml")
+            head = soup.find("head")
+            if not head:
+                continue
+
+            has_link = any(
+                link.get("href") and "default.css" in link.get("href")
+                for link in head.find_all("link")
+            )
+
+            if not has_link:
+                chapter_dir = os.path.dirname(item.get_name())
+                relative_path = os.path.relpath(
+                    style_item.get_name(), chapter_dir
+                ).replace("\\", "/")
+                new_link_tag = soup.new_tag(
+                    "link",
+                    rel="stylesheet",
+                    type="text/css",
+                    href=relative_path,
+                )
+                head.append(new_link_tag)
+                item.set_content(str(soup).encode("utf-8"))
+                item.add_item(style_item)
+                fixed_count += 1
+
+        if fixed_count > 0:
+            dir_name, file_name = os.path.split(epub_path)
+            new_file_name = os.path.splitext(file_name)[0] + "_fixed.epub"
+            new_file_path = os.path.join(dir_name, new_file_name)
+
+            epub.write_epub(new_file_path, book, {})
+            log_message(
+                f"Successfully fixed {fixed_count} chapters. New file saved as: {new_file_path}",
+                level="SUCCESS",
+            )
+        else:
+            log_message(
+                "No missing stylesheet links found. The book is already correct.",
+                level="SUCCESS",
+            )
+
+    except Exception as e:
+        log_message(
+            f"An unexpected error occurred during the fix process: {e}", level="ERROR"
+        )
+    finally:
+        log_message("--- Stylesheet Fixer Finished ---")
+        if dpg.is_dearpygui_running():
+            dpg.configure_item("fix_styles_button", enabled=True)
+
+
+def start_stylesheet_fix_thread(epub_path):
+    thread = threading.Thread(target=run_stylesheet_fix_process, args=(epub_path,))
+    thread.start()
+
+
 def fetch_models_from_api():
     if not os.getenv("GOOGLE_API_KEY"):
         log_message("Cannot fetch cloud models: API Key is not set.", level="WARNING")
