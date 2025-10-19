@@ -184,10 +184,9 @@ def create_cover_page_from_metadata(epub_path, logger):
 
         logger("Creating new cover.xhtml page...")
 
-        css_path = os.path.relpath(stylesheet.get_name(), ".").replace("\\", "/")
-        image_path = os.path.relpath(cover_image_item.get_name(), ".").replace(
-            "\\", "/"
-        )
+        cover_page_dir = os.path.dirname("cover.xhtml")
+        css_path = os.path.relpath(stylesheet.get_name(), cover_page_dir).replace("\\", "/")
+        image_path = os.path.relpath(cover_image_item.get_name(), cover_page_dir).replace("\\", "/")
 
         cover_page = epub.EpubHtml(title="Cover", file_name="cover.xhtml", lang="en")
         cover_page.content = f"""<html xmlns="http://www.w3.org/1999/xhtml">
@@ -211,7 +210,8 @@ def create_cover_page_from_metadata(epub_path, logger):
             "Replacing original first page with the new cover page in the book's reading order."
         )
         if book.spine:
-            book.spine[0] = cover_page
+            del book.spine[0]
+            book.spine.insert(0, cover_page)
         else:
             book.spine.append(cover_page)
 
