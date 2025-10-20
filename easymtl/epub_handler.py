@@ -142,15 +142,15 @@ def create_translated_epub(
         _update_toc_recursive(book.toc, newly_translated_titles)
 
     logger("Regenerating Table of Contents and Navigation files...")
-    
-    existing_ncx = book.get_item_with_id('ncx')
+
+    existing_ncx = book.get_item_with_id("ncx")
     if existing_ncx:
         book.items.remove(existing_ncx)
 
-    existing_nav = book.get_item_with_id('nav')
+    existing_nav = book.get_item_with_id("nav")
     if existing_nav:
         book.items.remove(existing_nav)
-        
+
     book.add_item(epub.EpubNcx())
     book.add_item(epub.EpubNav())
 
@@ -165,6 +165,42 @@ def create_cover_page_from_metadata(epub_path, logger):
     try:
         logger("Starting cover page creation process...")
         book = epub.read_epub(epub_path)
+
+        if not book.spine:
+            logger(
+                "Book has an empty reading order (spine). Cannot replace a cover.",
+                level="ERROR",
+            )
+            return
+
+        first_spine_item = book.spine[0]
+        old_first_page_id = None
+        if isinstance(first_spine_item, tuple):
+            old_first_page_id = first_spine_item[0]
+        elif isinstance(first_spine_item, str):
+            old_first_page_id = first_spine_item
+        elif hasattr(first_spine_item, "id"):
+            old_first_page_id = first_spine_item.id
+
+        if not old_first_page_id:
+            logger(
+                "Could not identify the ID of the first page in the book's spine.",
+                level="ERROR",
+            )
+            return
+
+        old_first_page = book.get_item_with_id(old_first_page_id)
+        if not old_first_page:
+            logger(
+                f"Spine points to an item with ID '{old_first_page_id}', but it was not found in the book.",
+                level="ERROR",
+            )
+            return
+
+        logger(
+            f"Identified '{old_first_page.get_name()}' as the current first page to be replaced."
+        )
+
         cover_image_item = None
 
         logger("Step 1: Checking for dedicated ITEM_COVER type...")
@@ -198,13 +234,8 @@ def create_cover_page_from_metadata(epub_path, logger):
 
         logger("Creating and adding a new stylesheet for the cover...")
         stylesheet_content = """
-.cover-page {
-    text-align: center; margin: 0; padding: 0; height: 100vh;
-    display: flex; justify-content: center; align-items: center;
-}
-.cover-page img {
-    max-width: 100%; max-height: 100%; object-fit: contain;
-}
+.cover-page { text-align: center; margin: 0; padding: 0; height: 100vh; display: flex; justify-content: center; align-items: center; }
+.cover-page img { max-width: 100%; max-height: 100%; object-fit: contain; }
 """
         stylesheet = epub.EpubItem(
             uid="style_cover",
@@ -215,7 +246,6 @@ def create_cover_page_from_metadata(epub_path, logger):
         book.add_item(stylesheet)
 
         logger("Creating new cover.xhtml page...")
-
         cover_page_dir = os.path.dirname("cover.xhtml")
         css_path = os.path.relpath(stylesheet.get_name(), cover_page_dir).replace(
             "\\", "/"
@@ -230,11 +260,7 @@ def create_cover_page_from_metadata(epub_path, logger):
     <title>Cover</title>
     <link rel="stylesheet" type="text/css" href="{css_path}" />
 </head>
-<body>
-    <div class="cover-page">
-        <img src="{image_path}" alt="Cover Image" />
-    </div>
-</body>
+<body><div class="cover-page"><img src="{image_path}" alt="Cover Image" /></div></body>
 </html>""".encode(
             "utf-8"
         )
@@ -242,14 +268,26 @@ def create_cover_page_from_metadata(epub_path, logger):
         book.add_item(cover_page)
         cover_page.add_item(stylesheet)
 
+        logger("Performing a full replacement of the old cover page...")
+        book.spine[0] = cover_page
+
+        logger("Updating book metadata to reference the new cover page...")
+        for meta in book.metadata.get("OPF", []):
+            if meta[1].get("name") == "cover":
+                meta[1]["content"] = cover_page.id
+                logger(f"Updated OPF 'cover' metadata to point to ID: {cover_page.id}")
+
+        for guide_item in book.guide:
+            if guide_item.get("type") == "cover":
+                guide_item["href"] = cover_page.file_name
+                logger(
+                    f"Updated EPUB2 guide 'cover' to point to: {cover_page.file_name}"
+                )
+
         logger(
-            "Replacing original first page with the new cover page in the book's reading order."
+            f"Removing the old page '{old_first_page.get_name()}' from the book's items."
         )
-        if book.spine:
-            del book.spine[0]
-            book.spine.insert(0, cover_page)
-        else:
-            book.spine.append(cover_page)
+        book.items.remove(old_first_page)
 
         dir_name, file_name = os.path.split(epub_path)
         new_file_name = os.path.splitext(file_name)[0] + "_cover.epub"
