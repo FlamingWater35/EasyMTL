@@ -62,7 +62,7 @@ def create_translated_epub(
         stylesheet_content = """
         body { font-family: serif; line-height: 1.6; margin: 5px; }
         h1 { text-align: center; font-weight: bold; page-break-before: always; margin-top: 2em; margin-bottom: 2em; }
-        p { text-align: justify; text-indent: 1.5em; margin-top: 0; margin-bottom: 0; }
+        p { text-align: justify; text-indent: 1.5em; margin-top: 0; margin-bottom: 0; padding-bottom: 0.2em; }
         img { max-width: 100%; height: auto; display: block; margin-left: auto; margin-right: auto; padding-top: 1em; padding-bottom: 1em; }
         """
         style_item = epub.EpubItem(
