@@ -142,6 +142,15 @@ def create_translated_epub(
         _update_toc_recursive(book.toc, newly_translated_titles)
 
     logger("Regenerating Table of Contents and Navigation files...")
+    
+    existing_ncx = book.get_item_with_id('ncx')
+    if existing_ncx:
+        book.items.remove(existing_ncx)
+
+    existing_nav = book.get_item_with_id('nav')
+    if existing_nav:
+        book.items.remove(existing_nav)
+        
     book.add_item(epub.EpubNcx())
     book.add_item(epub.EpubNav())
 
