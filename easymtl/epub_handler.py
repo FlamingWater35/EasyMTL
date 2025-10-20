@@ -1,6 +1,18 @@
 import os
-from ebooklib import epub, ITEM_COVER
+from ebooklib import epub, ITEM_COVER, ITEM_DOCUMENT
 from bs4 import BeautifulSoup
+
+
+def _update_toc_recursive(toc_list, title_map):
+    for item in toc_list:
+        if (
+            isinstance(item, (list, tuple))
+            and len(item) == 2
+            and isinstance(item[0], str)
+        ):
+            _update_toc_recursive(item[1], title_map)
+        elif hasattr(item, "href") and item.href in title_map:
+            item.title = title_map[item.href]
 
 
 def extract_content_from_chapters(chapter_items, logger, verbose=True):
@@ -62,26 +74,29 @@ def create_translated_epub(
         book.add_item(style_item)
 
     image_map = {href: images for href, images in extraction_data}
+    chapters_to_replace_hrefs = {item.get_name() for item in chapters_to_replace}
+    newly_translated_titles = {}
 
-    for item_to_replace in chapters_to_replace:
-        original_href = item_to_replace.get_name()
+    for item in book.get_items_of_type(ITEM_DOCUMENT):
+        original_href = item.get_name()
 
-        if original_href in translation_map:
-            item_in_new_book = book.get_item_with_href(original_href)
-            if not item_in_new_book:
-                continue
-
+        if (
+            original_href in chapters_to_replace_hrefs
+            and original_href in translation_map
+        ):
             translated_content = translation_map[original_href]
             image_tags = image_map.get(original_href, [])
             lines = translated_content.strip().split("\n")
 
-            title_text, body_content, start_index = f"Chapter", "", 0
+            title_text, body_content, start_index = item.title, "", 0
 
             if lines and lines[0].startswith("**") and lines[0].endswith("**"):
-                title_text, start_index = lines[0].strip("* ").strip(), 1
+                title_text = lines[0].strip("* ").strip()
+                start_index = 1
                 body_content += f"<h1>{title_text}</h1>\n"
-            else:
-                title_text = item_in_new_book.title or title_text
+
+            item.title = title_text
+            newly_translated_titles[original_href] = title_text
 
             for line in lines[start_index:]:
                 clean_line = line.strip()
@@ -101,12 +116,12 @@ def create_translated_epub(
 
             if not body_content.strip():
                 logger(
-                    f"Translated content for '{original_href}' is empty. Skipping modification to prevent errors.",
+                    f"Translated content for '{original_href}' is empty. Skipping modification.",
                     level="WARNING",
                 )
                 continue
 
-            chapter_dir = os.path.dirname(item_in_new_book.get_name())
+            chapter_dir = os.path.dirname(item.get_name())
             style_path_relative = os.path.relpath(
                 style_item.get_name(), chapter_dir
             ).replace("\\", "/")
@@ -114,13 +129,21 @@ def create_translated_epub(
             html = f"""<?xml version='1.0' encoding='utf-8'?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <title>{title_text}</title>
+    <title>{item.title}</title>
     <link rel="stylesheet" type="text/css" href="{style_path_relative}" />
 </head>
 <body>{body_content}</body>
 </html>"""
-            item_in_new_book.set_content(html.encode("utf-8"))
-            item_in_new_book.add_item(style_item)
+            item.set_content(html.encode("utf-8"))
+            item.add_item(style_item)
+
+    if newly_translated_titles:
+        logger("Updating Table of Contents with new titles...")
+        _update_toc_recursive(book.toc, newly_translated_titles)
+
+    logger("Regenerating Table of Contents and Navigation files...")
+    book.add_item(epub.EpubNcx())
+    book.add_item(epub.EpubNav())
 
     try:
         epub.write_epub(new_file_path, book, {})
@@ -185,8 +208,12 @@ def create_cover_page_from_metadata(epub_path, logger):
         logger("Creating new cover.xhtml page...")
 
         cover_page_dir = os.path.dirname("cover.xhtml")
-        css_path = os.path.relpath(stylesheet.get_name(), cover_page_dir).replace("\\", "/")
-        image_path = os.path.relpath(cover_image_item.get_name(), cover_page_dir).replace("\\", "/")
+        css_path = os.path.relpath(stylesheet.get_name(), cover_page_dir).replace(
+            "\\", "/"
+        )
+        image_path = os.path.relpath(
+            cover_image_item.get_name(), cover_page_dir
+        ).replace("\\", "/")
 
         cover_page = epub.EpubHtml(title="Cover", file_name="cover.xhtml", lang="en")
         cover_page.content = f"""<html xmlns="http://www.w3.org/1999/xhtml">
