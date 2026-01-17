@@ -17,13 +17,12 @@ def _update_toc_recursive(toc_list, title_map):
 
 def extract_content_from_chapters(chapter_items, logger, verbose=True):
     if verbose:
-        logger("Extracting content and adding unique chapter identifiers...")
+        logger("Extracting content and filtering empty chapters...")
     full_content_for_api = ""
     extraction_data = []
 
     for item in chapter_items:
         chapter_id = item.get_name()
-        id_tag = f"[CHAPTER_ID::{chapter_id}]"
 
         soup = BeautifulSoup(item.get_content(), "html.parser")
         body = soup.find("body")
@@ -37,6 +36,18 @@ def extract_content_from_chapters(chapter_items, logger, verbose=True):
             img.replace_with(placeholder)
 
         chapter_text = body.get_text(separator="\n", strip=True)
+
+        text_check = chapter_text
+        for i in range(len(image_tags_for_chapter)):
+            text_check = text_check.replace(f"[IMAGE_PLACEHOLDER_{i}]", "")
+
+        if not text_check.strip():
+            if verbose:
+                logger(f"Skipping empty or image-only chapter: {chapter_id}")
+            extraction_data.append((chapter_id, image_tags_for_chapter))
+            continue
+
+        id_tag = f"[CHAPTER_ID::{chapter_id}]"
         full_content_for_api += f"{id_tag}\n{chapter_text}\n---\n"
         extraction_data.append((chapter_id, image_tags_for_chapter))
 
@@ -80,10 +91,15 @@ def create_translated_epub(
     for item in book.get_items_of_type(ITEM_DOCUMENT):
         original_href = item.get_name()
 
-        if (
-            original_href in chapters_to_replace_hrefs
-            and original_href in translation_map
-        ):
+        if original_href in chapters_to_replace_hrefs:
+
+            if original_href not in translation_map:
+                logger(
+                    f"Keeping original content for '{original_href}' (No translation generated).",
+                    level="INFO",
+                )
+                continue
+
             translated_content = translation_map[original_href]
             image_tags = image_map.get(original_href, [])
             lines = translated_content.strip().split("\n")
