@@ -1,4 +1,5 @@
 import os
+import re
 from ebooklib import epub, ITEM_COVER, ITEM_DOCUMENT
 from bs4 import BeautifulSoup
 
@@ -34,6 +35,16 @@ def extract_content_from_chapters(chapter_items, logger, verbose=True):
             placeholder = f"\n[IMAGE_PLACEHOLDER_{i}]\n"
             image_tags_for_chapter.append(str(img))
             img.replace_with(placeholder)
+
+        for tag in body.find_all(["b", "strong"]):
+            text = tag.get_text()
+            if text.strip():
+                tag.replace_with(f"**{text}**")
+
+        for tag in body.find_all(["i", "em"]):
+            text = tag.get_text()
+            if text.strip():
+                tag.replace_with(f"*{text}*")
 
         chapter_text = body.get_text(separator="\n", strip=True)
 
@@ -92,7 +103,6 @@ def create_translated_epub(
         original_href = item.get_name()
 
         if original_href in chapters_to_replace_hrefs:
-
             if original_href not in translation_map:
                 logger(
                     f"Keeping original content for '{original_href}' (No translation generated).",
@@ -118,6 +128,7 @@ def create_translated_epub(
                 clean_line = line.strip()
                 if not clean_line:
                     continue
+
                 if clean_line.startswith("[IMAGE_PLACEHOLDER_") and clean_line.endswith(
                     "]"
                 ):
@@ -128,6 +139,9 @@ def create_translated_epub(
                     except (ValueError, IndexError):
                         body_content += f"<p>{clean_line}</p>\n"
                 else:
+                    clean_line = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", clean_line)
+                    clean_line = re.sub(r"\*([^*]+)\*", r"<i>\1</i>", clean_line)
+
                     body_content += f"<p>{clean_line}</p>\n"
 
             if not body_content.strip():
