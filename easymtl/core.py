@@ -26,7 +26,7 @@ from .epub_handler import (
     create_translated_epub,
 )
 from .translator import (
-    count_tokens as count_tokens_cloud,
+    estimate_tokens_fast,
     get_model_output_limit,
     list_models,
     translate_text_with_gemini,
@@ -148,10 +148,12 @@ def _process_with_cloud_model(
     total_chapters_to_process = len(chapters_to_translate)
     max_output_tokens = get_model_output_limit(log_message)
     safe_token_limit = int(max_output_tokens * TOKEN_LIMIT_PERCENTAGE)
+
     log_message(f"Using a safe input token limit of {safe_token_limit} per chunk.")
 
-    log_message("Pre-processing chapters to count tokens...")
+    log_message("Pre-processing chapters to estimate token usage...")
     chapter_data_list = []
+
     for i, item in enumerate(chapters_to_translate):
         if stop_event.is_set():
             log_message("Translation stopped by user.", level="WARNING")
@@ -160,27 +162,28 @@ def _process_with_cloud_model(
         item_content, item_extraction_data = extract_content_from_chapters(
             [item], log_message, verbose=False
         )
+
+        estimated_count = estimate_tokens_fast(item_content)
+
+        if not item_content.strip() and estimated_count == 0:
+            estimated_count = 0
+        else:
+            estimated_count = max(1, estimated_count)
+
         chapter_data_list.append(
             {
                 "item": item,
                 "content": item_content,
-                "tokens": 0,
+                "tokens": estimated_count,
                 "extraction_data": item_extraction_data[0],
             }
         )
+
         if dpg.is_dearpygui_running():
-            overlay_text = f"Analyzing {i + 1}/{total_chapters_to_process}..."
+            overlay_text = f"Analyzed {i + 1}/{total_chapters_to_process}..."
             dpg.configure_item("progress_bar", overlay=overlay_text)
 
-    full_text_for_token_count = "".join([data["content"] for data in chapter_data_list])
-    total_tokens = count_tokens_cloud(full_text_for_token_count)
-    total_chars = len(full_text_for_token_count)
-    if total_chars > 0:
-        for data in chapter_data_list:
-            char_proportion = len(data["content"]) / total_chars
-            estimated_tokens = int(total_tokens * char_proportion)
-            data["tokens"] = max(1, estimated_tokens)
-    log_message("Pre-processing complete.", level="SUCCESS")
+    log_message("Pre-processing complete (Local estimation used).", level="SUCCESS")
 
     log_message(f"Building dynamic chunks with a token limit of {safe_token_limit}...")
     chunks = []

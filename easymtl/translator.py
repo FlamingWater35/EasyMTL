@@ -192,6 +192,7 @@ Follow these rules precisely:
         return {"status": "FAILED", "text": None}
 
 
+# Unused
 def count_tokens(text):
     client, error = get_client()
     if error or not text:
@@ -219,3 +220,20 @@ def parse_translated_text(translated_text):
             content = clean_chunk[match.end() :].strip()
             translation_map[chapter_id] = content
     return translation_map
+
+
+def estimate_tokens_fast(text):
+    if not text:
+        return 0
+
+    length = len(text)
+
+    sample = text[:500]
+    non_ascii_count = sum(1 for c in sample if ord(c) > 127)
+
+    is_mostly_non_english = non_ascii_count > (len(sample) * 0.2)
+
+    if is_mostly_non_english:
+        return int(length * 1.3)
+    else:
+        return int(length / 2.5)
