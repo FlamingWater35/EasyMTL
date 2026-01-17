@@ -4,16 +4,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/FlamingWater35/EasyMTL)](https://github.com/FlamingWater35/EasyMTL/releases)
 
-Translate your e-books effortlessly using powerful cloud and local AI models.
+Translate your e-books effortlessly using powerful cloud and local AI models while preserving the book's structure and images.
 
-EasyMTL is a tool designed to quickly and accurately translate EPUB files. It preserves the book's structure, including images.
-
-> **Important**: Slight manual editing might be needed to ensure a complete translation. As AI can make mistakes, this app features a proofreading tool that is recommended to run in order to maintain high-quality translations. The proofreading tool is optimized to specially target languages using non-English characters. Translating from other languages is not recommended because AI models might leave a few untranslated phrases in the book, which is complex to detect.
+> **Important**: Slight manual editing might be needed to ensure a complete translation. As AI can make mistakes, this app features a proofreading tool that is recommended to run in order to make high-quality translations. The proofreading tool is optimized for languages using non-English characters.
 
 ## ✨ Features
 
 - **Dual Translation Engines**:
-  - **Cloud**: Utilizes powerful Gemini models (for example, Gemini 2.5 Pro) via API for high-quality translations.
+  - **Cloud**: Utilizes powerful Gemini models (for example, Gemini 2.5 Flash) via API for high-quality translations.
   - **Local**: Can also run translations completely offline using models like Gemma 3 and Mistral on your own hardware.
 
 - **Built-in EPUB Tools**:
@@ -66,7 +64,7 @@ EasyMTL is a tool designed to quickly and accurately translate EPUB files. It pr
 
 ## 🚀 Installation From Source
 
-Follow these steps to get the application running from source. (Note that Linux isn't yet supported despite the mentions)
+Follow these steps to get the application running from source. (Note that Linux isn't yet supported despite it being mentioned below)
 
 ### 1. Prerequisites
 
@@ -107,9 +105,9 @@ pip install -r requirements.txt
 #### 5. Configuration
 
 - **For Cloud Models (Gemini)**:
-    1. Run the application.
-    2. Go to `Settings > Set API Key`.
-    3. Paste your Google AI Studio API key and click "Save".
+  1. Run the application.
+  2. Go to `Settings > Set API Key`.
+  3. Paste your Google AI Studio API key and click "Save".
 
 - **For Local Models**:
   - **Note that these steps may not be necessary:**
@@ -117,23 +115,23 @@ pip install -r requirements.txt
     2. Visit the page of a gated model you wish to download (e.g., [Gemma 2 on Hugging Face](https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/)) and accept the terms.
     3. Log in via your terminal. This is a one-time setup:
 
-        ```bash
-        huggingface-cli login
-        ```
+       ```bash
+       huggingface-cli login
+       ```
 
-        Paste your Hugging Face access token when prompted.
+       Paste your Hugging Face access token when prompted.
 
 ## 💻 Usage
 
 1. Run the application:
 
-    ```bash
-    python main.py
-    ```
+   ```bash
+   python main.py
+   ```
 
 2. **Select a Model**:
-    - For **cloud translation**, go to `Settings > Select Model` to choose a Gemini model.
-    - For **local translation**, go to `Local Models > Manage Models` to download or select a model for local use.
+   - For **cloud translation**, go to `Settings > Select Model` to choose a Gemini model.
+   - For **local translation**, go to `Local Models > Manage Models` to download or select a model for local use.
 3. **Select EPUB**: Click "Browse..." to choose the EPUB file you want to translate.
 4. **Choose Chapters**: Set the start and end chapters for the translation.
 5. **Start**: Click "Start Translation" and enjoy some tea while the operation is running.
@@ -147,9 +145,9 @@ A fully ready build script is provided in the `/scripts` folder to build the app
 1. Navigate to the project root.
 2. Run the build script:
 
-    ```bash
-    python scripts/build.py
-    ```
+   ```bash
+   python scripts/build.py
+   ```
 
 3. Choose "Build Application" from the menu by inputting `2`
 
@@ -159,7 +157,7 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 
 ## 🙏 Acknowledgments
 
-Thanks to these open-source libraries, my life is so much easier:
+Thanks to these open-source libraries, my life is much more pleasant:
 
 - [DearPyGUI](https://github.com/hoffstadt/DearPyGUI)
 - [ebooklib](https://github.com/aerkalov/ebooklib)
