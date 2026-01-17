@@ -82,10 +82,41 @@ def create_translated_epub(
     if not style_item:
         logger("Stylesheet not found, creating a new one.")
         stylesheet_content = """
-        body { font-family: serif; line-height: 1.6; margin: 5px; }
-        h1 { text-align: center; font-weight: bold; page-break-before: always; margin-top: 2em; margin-bottom: 2em; }
-        p { text-align: justify; text-indent: 1.5em; margin-top: 0; margin-bottom: 0; padding-bottom: 0.2em; }
-        img { max-width: 100%; height: auto; display: block; margin-left: auto; margin-right: auto; padding-top: 1em; padding-bottom: 1em; }
+body { 
+    font-family: serif; 
+    font-size: 1em;
+    line-height: 1.6; 
+    margin: 0; 
+    padding: 0 0.5em;
+    widows: 2;
+    orphans: 2;
+}
+
+h1 { 
+    text-align: center; 
+    font-weight: bold; 
+    font-size: 2.2em;
+    line-height: 1.3;
+    page-break-before: always; 
+    margin-top: 2em;
+    margin-bottom: 2.5em;
+    color: inherit;
+}
+
+p { 
+    text-align: justify; 
+    text-indent: 1.5em;
+    margin-top: 0; 
+    margin-bottom: 0.8em;
+    line-height: 1.6; 
+}
+
+img { 
+    max-width: 100%; 
+    height: auto; 
+    display: block; 
+    margin: 1.5em auto;
+}
         """
         style_item = epub.EpubItem(
             uid="style_default",
