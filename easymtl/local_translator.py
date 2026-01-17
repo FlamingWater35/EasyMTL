@@ -77,6 +77,7 @@ def translate_text_with_local_model(text, logger):
 If the chapter has a title, enclose the translated title in double asterisks, like this: **Chapter Title**.
 If the chapter has a number, preserve it in the title like this: **Chapter 1: The Beginning**.
 Preserve any placeholder tags like `[IMAGE_PLACEHOLDER_N]` exactly as they appear.
+If the input text uses *italics* or **bold**, preserve that formatting in the English translation.
 
 ---
 {text}
