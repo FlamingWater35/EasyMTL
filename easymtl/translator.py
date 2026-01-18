@@ -84,13 +84,58 @@ def list_models(logger):
         return [DEFAULT_MODEL]
 
     try:
-        models = [
+        all_models = [
             m.name
             for m in client.models.list()
             if "generateContent" in m.supported_actions
         ]
-        models.sort(key=lambda x: "pro" not in x)
-        return models
+        filtered_models = []
+
+        for name in all_models:
+            lower_name = name.lower()
+
+            if "image" in lower_name or "computer-use" in lower_name:
+                continue
+
+            if "gemma" in lower_name:
+                filtered_models.append(name)
+                continue
+
+            if "gemini" in lower_name:
+                match = re.search(r"gemini-(\d+(?:\.\d+)?)", lower_name)
+                if match:
+                    try:
+                        version_val = float(match.group(1))
+                        if version_val >= 2.5:
+                            filtered_models.append(name)
+                    except ValueError:
+                        continue
+
+        if not filtered_models:
+            logger(
+                "No models found matching criteria (Gemini >= 2.5 or Gemma). Showing default.",
+                level="WARNING",
+            )
+            return [DEFAULT_MODEL]
+
+        def get_version_val(model_name):
+            match = re.search(r"(\d+(?:\.\d+)?)", model_name)
+            if match:
+                try:
+                    return float(match.group(1))
+                except ValueError:
+                    pass
+            return 0.0
+
+        filtered_models.sort(
+            key=lambda x: (
+                "gemini" not in x.lower(),
+                -get_version_val(x),
+                "pro" not in x.lower(),
+                x,
+            )
+        )
+        return filtered_models
     except errors.APIError as e:
         logger(f"API Error while listing models: {e.message}", level="ERROR")
         return [DEFAULT_MODEL]
@@ -217,7 +262,7 @@ def count_tokens(text):
 def parse_translated_text(translated_text):
     if not translated_text:
         return {}
-    
+
     id_pattern = re.compile(r"\[CHAPTER_ID::([^]]+)\]")
     translation_map = {}
     raw_chunks = translated_text.split("---")
