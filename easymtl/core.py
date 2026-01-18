@@ -216,14 +216,14 @@ def _process_with_cloud_model(
         log_message(f"--- Processing Chunk (Size: {len(chunk_items)} chapters) ---")
 
         chunk_translation_map = None
-        max_standard_retries = 3
-        current_try = 0
-        while current_try < max_standard_retries:
-            if stop_event.is_set(): 
+        max_retries = 3
+
+        for attempt in range(max_retries):
+            if stop_event.is_set():
                 break
 
             response = translate_text_with_gemini(
-                chunk_content, log_message, is_retry=(current_try > 0)
+                chunk_content, log_message, is_retry=(attempt > 0)
             )
             status = response["status"]
 
@@ -232,28 +232,38 @@ def _process_with_cloud_model(
                 break
 
             elif status == "QUOTA_EXCEEDED":
-                log_message("Quota limit reached. Pausing for 70 seconds to cool down...", level="WARNING")
-                
-                for _ in range(70):
-                    if stop_event.is_set(): break
-                    time.sleep(1)
-                continue 
+                if attempt < max_retries - 1:
+                    log_message(
+                        f"Quota exceeded. Waiting 65s before retry ({attempt + 1}/{max_retries})...",
+                        level="WARNING",
+                    )
+                    for _ in range(65):
+                        if stop_event.is_set():
+                            break
+                        time.sleep(1)
+                else:
+                    log_message(
+                        "Quota retries exhausted for this chunk.", level="ERROR"
+                    )
+                    break
 
             elif status == "TOKEN_LIMIT_EXCEEDED":
-                log_message("Halting translation due to input token limit (Chunk too large).", level="ERROR")
-                raise InterruptedError("TOKEN_LIMIT_EXCEEDED")
+                log_message(
+                    "Input text too large (Token Limit). stopping retry to split chunk.",
+                    level="ERROR",
+                )
+                break
 
             else:
-                current_try += 1
-                if current_try < max_standard_retries:
-                    wait_time = 5 * current_try
+                if attempt < max_retries - 1:
+                    wait_time = 5 * (attempt + 1)
                     log_message(
-                        f"API call failed. Retrying in {wait_time}s ({current_try}/{max_standard_retries})...",
+                        f"API call failed. Retrying in {wait_time}s ({attempt + 1}/{max_retries})...",
                         level="WARNING",
                     )
                     time.sleep(wait_time)
                 else:
-                    log_message("Max retries reached for this chunk.", level="ERROR")
+                    log_message("Generic retries exhausted.", level="ERROR")
 
         if chunk_translation_map:
             translation_map.update(chunk_translation_map)
@@ -262,6 +272,7 @@ def _process_with_cloud_model(
                 if data["item"].get_name() in translated_ids:
                     all_extraction_data.append(data["extraction_data"])
             chapters_processed += len(translated_ids)
+
             untranslated_data = [
                 data
                 for data in chunk_data
@@ -284,9 +295,9 @@ def _process_with_cloud_model(
                 else:
                     chunks.insert(0, untranslated_data)
 
-        elif status != "TOKEN_LIMIT_EXCEEDED":
+        else:
             log_message(
-                f"Translation failed for a chunk of {len(chunk_data)} chapters. Splitting and re-queuing.",
+                f"Translation failed for chunk of {len(chunk_data)} chapters. Splitting and re-queuing.",
                 level="ERROR",
             )
             if len(chunk_data) > 1:
@@ -300,7 +311,7 @@ def _process_with_cloud_model(
                 )
             else:
                 log_message(
-                    f"Unable to translate chapter {chunk_data[0]['item'].get_name()} after multiple attempts. Skipping.",
+                    f"Unable to translate chapter {chunk_data[0]['item'].get_name()} after 3 attempts. Skipping.",
                     level="ERROR",
                 )
                 chapters_processed += 1
