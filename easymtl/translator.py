@@ -149,8 +149,16 @@ Follow these rules precisely:
             model=model_name, contents=prompt, config=config
         )
 
+        if not response.candidates:
+            logger("API returned no candidates (empty response).", level="WARNING")
+            return {"status": "FAILED", "text": None}
+
         finish_reason = response.candidates[0].finish_reason
         raw_text = response.text
+
+        if not raw_text:
+            logger("API returned success status but no text content.", level="WARNING")
+            return {"status": "FAILED", "text": None}
 
         final_text_to_parse = raw_text
 
@@ -193,7 +201,7 @@ Follow these rules precisely:
         return {"status": "FAILED", "text": None}
 
 
-# Unused
+# Unused (needed for precise token calculation)
 def count_tokens(text):
     client, error = get_client()
     if error or not text:
@@ -207,6 +215,9 @@ def count_tokens(text):
 
 
 def parse_translated_text(translated_text):
+    if not translated_text:
+        return {}
+    
     id_pattern = re.compile(r"\[CHAPTER_ID::([^]]+)\]")
     translation_map = {}
     raw_chunks = translated_text.split("---")
