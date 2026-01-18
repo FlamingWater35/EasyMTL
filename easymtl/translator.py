@@ -262,7 +262,7 @@ Follow these rules precisely:
         return {"status": "FAILED", "text": None}
 
 
-# Unused (needed for precise token calculation)
+# Unused (for precise token calculation)
 def count_tokens(text):
     client, error = get_client()
     if error or not text:

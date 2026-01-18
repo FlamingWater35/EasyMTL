@@ -249,7 +249,7 @@ def _process_with_cloud_model(
 
             elif status == "TOKEN_LIMIT_EXCEEDED":
                 log_message(
-                    "Input text too large (Token Limit). stopping retry to split chunk.",
+                    "Input text too large (Token Limit). Stopping retry to split chunk.",
                     level="ERROR",
                 )
                 break
