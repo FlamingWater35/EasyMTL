@@ -235,9 +235,15 @@ Follow these rules precisely:
 
     except errors.APIError as e:
         error_message = str(e.message).lower()
-        if "quota" in error_message or "token" in error_message:
-            logger(f"API token/quota limit likely exceeded. {e.message}", level="ERROR")
+
+        if "429" in error_message or "quota" in error_message or "resource exhausted" in error_message:
+            logger(f"Google API Quota hit: {e.message}", level="WARNING")
+            return {"status": "QUOTA_EXCEEDED", "text": None}
+
+        elif "400" in error_message or "token" in error_message or "too large" in error_message:
+            logger(f"Input text is too large for this model: {e.message}", level="ERROR")
             return {"status": "TOKEN_LIMIT_EXCEEDED", "text": None}
+
         else:
             logger(f"An API error occurred: {e.message}", level="ERROR")
             return {"status": "FAILED", "text": None}

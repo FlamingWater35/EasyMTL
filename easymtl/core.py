@@ -215,25 +215,45 @@ def _process_with_cloud_model(
         chunk_content = "".join([data["content"] for data in chunk_data])
         log_message(f"--- Processing Chunk (Size: {len(chunk_items)} chapters) ---")
 
-        chunk_translation_map, response_status, response = None, None, None
-        max_api_retries = 2
-        for attempt in range(max_api_retries):
-            response = translate_text_with_gemini(
-                chunk_content, log_message, is_retry=False
-            )
-            response_status = response["status"]
-            if response_status != "FAILED":
+        chunk_translation_map = None
+        max_standard_retries = 3
+        current_try = 0
+        while current_try < max_standard_retries:
+            if stop_event.is_set(): 
                 break
-            wait_time = 2 * (attempt + 2)
-            log_message(
-                f"API call failed. Waiting {wait_time}s before retrying ({attempt + 1}/{max_api_retries})...",
-                level="WARNING",
-            )
-            if attempt < max_api_retries - 1:
-                time.sleep(wait_time)
 
-        if response_status in ["SUCCESS", "OUTPUT_TRUNCATED"]:
-            chunk_translation_map = parse_translated_text(response["text"])
+            response = translate_text_with_gemini(
+                chunk_content, log_message, is_retry=(current_try > 0)
+            )
+            status = response["status"]
+
+            if status == "SUCCESS" or status == "OUTPUT_TRUNCATED":
+                chunk_translation_map = parse_translated_text(response["text"])
+                break
+
+            elif status == "QUOTA_EXCEEDED":
+                log_message("Quota limit reached. Pausing for 70 seconds to cool down...", level="WARNING")
+                
+                for _ in range(70):
+                    if stop_event.is_set(): break
+                    time.sleep(1)
+                continue 
+
+            elif status == "TOKEN_LIMIT_EXCEEDED":
+                log_message("Halting translation due to input token limit (Chunk too large).", level="ERROR")
+                raise InterruptedError("TOKEN_LIMIT_EXCEEDED")
+
+            else:
+                current_try += 1
+                if current_try < max_standard_retries:
+                    wait_time = 5 * current_try
+                    log_message(
+                        f"API call failed. Retrying in {wait_time}s ({current_try}/{max_standard_retries})...",
+                        level="WARNING",
+                    )
+                    time.sleep(wait_time)
+                else:
+                    log_message("Max retries reached for this chunk.", level="ERROR")
 
         if chunk_translation_map:
             translation_map.update(chunk_translation_map)
@@ -264,10 +284,7 @@ def _process_with_cloud_model(
                 else:
                     chunks.insert(0, untranslated_data)
 
-        elif response_status == "TOKEN_LIMIT_EXCEEDED":
-            log_message("Halting translation due to input token limit.", level="ERROR")
-            raise InterruptedError("TOKEN_LIMIT_EXCEEDED")
-        else:
+        elif status != "TOKEN_LIMIT_EXCEEDED":
             log_message(
                 f"Translation failed for a chunk of {len(chunk_data)} chapters. Splitting and re-queuing.",
                 level="ERROR",
